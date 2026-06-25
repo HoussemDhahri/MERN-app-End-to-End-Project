@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:4.4
+    container_name: mongo-container
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - mern-network
+
+  mongo-express:
+    image: mongo-express
+    container_name: mongo-express-container
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: admin
+    depends_on:
+      - mongo
+    networks:
+      - mern-network
+
+  backend:
+    build: ./backend
+    container_name: backend-container
+    restart: unless-stopped
+    ports:
+      - "3500:3500"
+    environment:
+      - PORT=3500
+      - MONGO_CONN_STR=mongodb://mongo:27017/todolistdb
+    depends_on:
+      - mongo
+    networks:
+      - mern-network
+
+  frontend:
+    build: ./frontend
+    container_name: frontend-container
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    depends_on:
+      - backend
+    networks:
+      - mern-network
+
+volumes:
+  mongo_data:
+
+networks:
+  mern-network:
+    driver: bridge
