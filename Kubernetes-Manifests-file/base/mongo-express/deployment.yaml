@@ -57,18 +57,16 @@ spec:
                   key: ME_BASICAUTH_PASSWORD
 
             - name: ME_CONFIG_SITE_BASEURL
-              value: "/"
+              value: "/mongo-express/"
 
           startupProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 8081
             periodSeconds: 10
             failureThreshold: 30
 
           readinessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 8081
             initialDelaySeconds: 20
             periodSeconds: 10
@@ -76,8 +74,7 @@ spec:
             failureThreshold: 5
 
           livenessProbe:
-            httpGet:
-              path: /
+            tcpSocket:
               port: 8081
             initialDelaySeconds: 40
             periodSeconds: 15
