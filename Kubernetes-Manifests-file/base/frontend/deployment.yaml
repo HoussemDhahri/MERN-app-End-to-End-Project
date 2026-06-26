@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todolist-frontend
+  labels:
+    app: todolist
+    component: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: todolist
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: todolist
+        component: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: houssemdhahri93/todolist-frontend
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 3000
+
+          env:
+            - name: REACT_APP_BACKEND_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: todolist-frontend-config
+                  key: REACT_APP_BACKEND_URL
+
+          startupProbe:
+            httpGet:
+              path: /
+              port: 3000
+            periodSeconds: 10
+            failureThreshold: 30
+            timeoutSeconds: 5
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

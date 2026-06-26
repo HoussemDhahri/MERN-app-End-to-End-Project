@@ -1,0 +1,36 @@
+crds:
+  enabled: false
+
+alertmanager:
+  alertmanagerSpec:
+    replicas: 1
+    secrets:
+      - alertmanager-telegram-token
+    configSecret: alertmanager-monitoring-kube-prometheus-alertmanager
+
+grafana:
+  admin:
+    existingSecret: grafana-admin-secret
+    userKey: admin-user
+    passwordKey: admin-password
+  persistence:
+    enabled: true
+    size: 1Gi
+  additionalDataSources: []
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    ruleSelector:
+      matchLabels:
+        release: monitoring
+    serviceMonitorSelector:
+      matchLabels:
+        release: monitoring
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 5Gi

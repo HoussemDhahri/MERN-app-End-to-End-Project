@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-express
+  labels:
+    app: todolist
+    component: mongo-express
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: todolist
+      component: mongo-express
+  template:
+    metadata:
+      labels:
+        app: todolist
+        component: mongo-express
+    spec:
+      containers:
+        - name: mongo-express
+          image: mongo-express:1.0.2
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 8081
+
+          env:
+            - name: ME_CONFIG_MONGODB_ADMINUSERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: MONGO_INITDB_ROOT_USERNAME
+
+            - name: ME_CONFIG_MONGODB_ADMINPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: MONGO_INITDB_ROOT_PASSWORD
+
+            - name: ME_CONFIG_MONGODB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: MONGO_CONN_STR
+
+            - name: ME_CONFIG_BASICAUTH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-express-secret
+                  key: ME_BASICAUTH_USERNAME
+
+            - name: ME_CONFIG_BASICAUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-express-secret
+                  key: ME_BASICAUTH_PASSWORD
+
+            - name: ME_CONFIG_SITE_BASEURL
+              value: "/"
+
+          startupProbe:
+            httpGet:
+              path: /
+              port: 8081
+            periodSeconds: 10
+            failureThreshold: 30
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8081
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8081
+            initialDelaySeconds: 40
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
