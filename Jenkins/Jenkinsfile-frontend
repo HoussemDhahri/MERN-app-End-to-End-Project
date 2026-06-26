@@ -351,7 +351,7 @@ pipeline {
         
                 git commit -m "ci: update prod image to ${IMAGE_TAG} [build ${BUILD_NUMBER}]" || echo "No changes to commit"
         
-                git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/HoussemDhahri/Tetris-Devsecops-End-to-End-Project.git
+                git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/HoussemDhahri/MERN-Stack-Devsecops-End-to-End-Project.git
         
                 git push origin ${GITOPS_BRANCH}
               '''
