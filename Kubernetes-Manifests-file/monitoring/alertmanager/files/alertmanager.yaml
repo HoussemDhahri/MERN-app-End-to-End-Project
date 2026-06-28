@@ -3,19 +3,20 @@ global:
 
 route:
   receiver: telegram
+  group_by: ['alertname', 'namespace']
   group_wait: 10s
-  group_interval: 30s
+  group_interval: 5m
   repeat_interval: 1h
-
   routes:
     - matchers:
         - severity = critical
       receiver: telegram
+      group_wait: 0s
       repeat_interval: 30m
-
     - matchers:
         - severity = warning
       receiver: telegram
+      group_interval: 10m
       repeat_interval: 2h
 
 receivers:
@@ -23,8 +24,8 @@ receivers:
     telegram_configs:
       - bot_token_file: /etc/alertmanager/secrets/alertmanager-telegram-token/bot_token
         chat_id: -1003954919587
-        parse_mode: HTML
         send_resolved: true
+        parse_mode: HTML
         message: '{{ template "telegram.message" . }}'
 
 templates:
