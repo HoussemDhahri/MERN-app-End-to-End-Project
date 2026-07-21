@@ -28,7 +28,7 @@ pipeline {
 
         // App
         APP_NAME     = 'todolist-frontend'
-        GITHUB_URL   = 'https://github.com/HoussemDhahri/MERN-Stack-Devsecops-End-to-End-Project.git'
+        GITHUB_URL   = 'https://github.com/HoussemDhahri/MERN-app-End-to-End-Project.git'
         APP_DIR      = 'Application-Code/frontend'
 
         // SonarQube
@@ -47,10 +47,6 @@ pipeline {
         K8S_REPO_PATH = 'Kubernetes-Manifests-file'
         K8S_STAGING   = 'Kubernetes-Manifests-file/overlays/staging'
         K8S_PROD      = 'Kubernetes-Manifests-file/overlays/prod'
-
-        // Staging / Prod URLs (Ingress)
-        STAGING_URL = 'http://myapp-staging.local'
-        PROD_URL    = 'http://myapp-prod.local'
 
         GIT_USER_NAME  = 'Houssem Dhahri'
         GIT_USER_EMAIL = 'todolist@pipeline.local'
@@ -307,7 +303,7 @@ pipeline {
         
                 git commit -m "ci: update staging image to ${IMAGE_TAG} [build ${BUILD_NUMBER}]" || echo "No changes to commit"
         
-                git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/HoussemDhahri/MERN-Stack-Devsecops-End-to-End-Project.git
+                git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/HoussemDhahri/MERN-app-End-to-End-Project.git
         
                 git push origin ${GITOPS_BRANCH}
               '''
@@ -351,7 +347,7 @@ pipeline {
         
                 git commit -m "ci: update prod image to ${IMAGE_TAG} [build ${BUILD_NUMBER}]" || echo "No changes to commit"
         
-                git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/HoussemDhahri/MERN-Stack-Devsecops-End-to-End-Project.git
+                git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/HoussemDhahri/MERN-app-End-to-End-Project.git
         
                 git push origin ${GITOPS_BRANCH}
               '''

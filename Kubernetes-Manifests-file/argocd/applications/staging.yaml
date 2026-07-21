@@ -7,7 +7,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/HoussemDhahri/MERN-Stack-Devsecops-End-to-End-Project.git
+    repoURL: https://github.com/HoussemDhahri/MERN-app-End-to-End-Project.git
     targetRevision: main
     path: Kubernetes-Manifests-file/overlays/staging
 

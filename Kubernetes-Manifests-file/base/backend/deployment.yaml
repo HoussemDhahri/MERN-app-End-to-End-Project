@@ -1,29 +1,34 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: todolist-backend
+  name: todolist-backend-deployment
   labels:
     app: todolist
     component: backend
+
 spec:
   replicas: 1
+
   selector:
     matchLabels:
       app: todolist
       component: backend
+
   template:
     metadata:
       labels:
         app: todolist
         component: backend
+
     spec:
       containers:
-        - name: backend
+        - name: todolist-backend
           image: houssemdhahri93/todolist-backend
           imagePullPolicy: Always
 
           ports:
             - containerPort: 3500
+
           env:
             - name: PORT
               value: "3500"
@@ -34,35 +39,28 @@ spec:
                   name: mongodb-secret
                   key: MONGO_CONN_STR
 
-          startupProbe:
-            httpGet:
-              path: /started
-              port: 3500
-            periodSeconds: 5
-            failureThreshold: 15
-
           livenessProbe:
             httpGet:
               path: /healthz
               port: 3500
-            initialDelaySeconds: 20
+            initialDelaySeconds: 30
             periodSeconds: 10
-            timeoutSeconds: 2
+            timeoutSeconds: 3
             failureThreshold: 3
 
           readinessProbe:
             httpGet:
               path: /ready
               port: 3500
-            initialDelaySeconds: 5
+            initialDelaySeconds: 15
             periodSeconds: 5
-            timeoutSeconds: 2
-            failureThreshold: 3
+            timeoutSeconds: 3
+            failureThreshold: 5
 
           resources:
             requests:
-              cpu: "50m"
-              memory: "64Mi"
+              cpu: "100m"
+              memory: "128Mi"
             limits:
-              cpu: "200m"
-              memory: "256Mi"
+              cpu: "300m"
+              memory: "384Mi"

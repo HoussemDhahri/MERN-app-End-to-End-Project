@@ -1,0 +1,48 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+
+metadata:
+  name: todolist-alertmanager
+  namespace: monitoring
+
+spec:
+  route:
+    receiver: telegram-notifications
+    groupBy:
+      - alertname
+      - namespace
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 1h
+
+  receivers:
+    - name: telegram-notifications
+
+      telegramConfigs:
+        - botToken:
+            name: alertmanager-telegram-token
+            key: bot-token
+
+          chatID: -1003954919587
+
+          sendResolved: true
+
+          parseMode: Markdown
+
+          message: |
+            🚨 *{{ .Status | toUpper }} Alert*
+
+            *Application:* Voting App
+
+            *Alert:* {{ .CommonLabels.alertname }}
+
+            *Severity:* {{ .CommonLabels.severity }}
+
+            *Namespace:* {{ .CommonLabels.namespace }}
+
+            *Pod:* {{ .CommonLabels.pod }}
+
+            *Description:*
+            {{ range .Alerts }}
+            • {{ .Annotations.description }}
+            {{ end }}
