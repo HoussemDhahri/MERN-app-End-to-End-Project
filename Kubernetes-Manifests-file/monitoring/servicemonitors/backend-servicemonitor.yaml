@@ -2,15 +2,21 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: todolist-backend
+  namespace: monitoring
+  labels:
+    release: monitoring
+
 spec:
   namespaceSelector:
     matchNames:
       - todolist-staging
       - todolist-prod
+
   selector:
     matchLabels:
       app: todolist
       component: backend
+
   endpoints:
     - port: http
       path: /metrics

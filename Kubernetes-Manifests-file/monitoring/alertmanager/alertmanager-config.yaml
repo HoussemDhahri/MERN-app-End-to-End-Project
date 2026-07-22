@@ -21,7 +21,7 @@ spec:
       telegramConfigs:
         - botToken:
             name: alertmanager-telegram-token
-            key: bot-token
+            key: bot_token
 
           chatID: -1003954919587
 
@@ -32,7 +32,7 @@ spec:
           message: |
             🚨 *{{ .Status | toUpper }} Alert*
 
-            *Application:* Voting App
+            *Application:* Todolist App
 
             *Alert:* {{ .CommonLabels.alertname }}
 
