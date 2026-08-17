@@ -4,7 +4,7 @@ metadata:
   name: todolist-staging-ingress
 
 spec:
-  ingressClassName: nginx
+  ingressClassName: traefik
 
   rules:
   - host: staging.local
