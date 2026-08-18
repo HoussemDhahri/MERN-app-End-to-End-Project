@@ -40,7 +40,9 @@ spec:
 
             *Namespace:* {{ .CommonLabels.namespace }}
 
-            *Pod:* {{ .CommonLabels.pod }}
+            *Component:* {{ .CommonLabels.component }}
+
+            *Instance:* {{ .CommonLabels.instance }}
 
             *Description:*
             {{ range .Alerts }}
