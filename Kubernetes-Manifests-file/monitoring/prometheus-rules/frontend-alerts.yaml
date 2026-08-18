@@ -1,0 +1,31 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+
+metadata:
+  name: todolist-frontend-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+
+spec:
+  groups:
+    - name: todolist-frontend
+      rules:
+
+        # ==================================================
+        # Frontend is unavailable
+        # ==================================================
+        - alert: TodoListFrontendDown
+          expr: |
+            probe_success{
+              job="todolist-frontend-blackbox"
+            } == 0
+          for: 2m
+
+          labels:
+            severity: critical
+            component: frontend
+
+          annotations:
+            summary: "TodoList frontend is down"
+            description: "The TodoList frontend has been unreachable for more than 2 minutes."

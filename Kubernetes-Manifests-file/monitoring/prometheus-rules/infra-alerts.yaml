@@ -1,25 +1,151 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
+
 metadata:
-  name: infra-rules
+  name: todolist-infra-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+
 spec:
   groups:
-    - name: infra.rules
+    - name: todolist-infrastructure
       rules:
-        - alert: NodeHighCPU
-          expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
-          for: 10m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Node CPU usage high"
-            description: "CPU usage above 85% for 10 minutes."
 
-        - alert: NodeLowMemory
-          expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 15
+        # ==================================================
+        # Kubernetes node is not ready
+        # ==================================================
+        - alert: KubernetesNodeNotReady
+          expr: |
+            kube_node_status_condition{
+              condition="Ready",
+              status="true"
+            } == 0
+          for: 5m
+
+          labels:
+            severity: critical
+            component: infrastructure
+
+          annotations:
+            summary: "Kubernetes node is not ready"
+            description: "Node {{ $labels.node }} has been not ready for more than 5 minutes."
+
+
+        # ==================================================
+        # Kubernetes node has high CPU usage
+        # ==================================================
+        - alert: KubernetesNodeHighCPU
+          expr: |
+            (
+              1 -
+              avg by (instance) (
+                rate(
+                  node_cpu_seconds_total{
+                    job="node-exporter",
+                    mode="idle"
+                  }[5m]
+                )
+              )
+            ) > 0.80
           for: 10m
+
           labels:
             severity: warning
+            component: infrastructure
+
           annotations:
-            summary: "Node memory low"
-            description: "Available memory below 15%."
+            summary: "Kubernetes node has high CPU usage"
+            description: "Node {{ $labels.instance }} has been using more than 80% CPU for over 10 minutes."
+
+
+        # ==================================================
+        # Kubernetes node has high memory usage
+        # ==================================================
+        - alert: KubernetesNodeHighMemory
+          expr: |
+            (
+              1 -
+              (
+                node_memory_MemAvailable_bytes{
+                  job="node-exporter"
+                }
+                /
+                node_memory_MemTotal_bytes{
+                  job="node-exporter"
+                }
+              )
+            ) > 0.85
+          for: 10m
+
+          labels:
+            severity: warning
+            component: infrastructure
+
+          annotations:
+            summary: "Kubernetes node has high memory usage"
+            description: "Node {{ $labels.instance }} has been using more than 85% memory for over 10 minutes."
+
+
+        # ==================================================
+        # Kubernetes node disk is almost full
+        # ==================================================
+        - alert: KubernetesNodeDiskAlmostFull
+          expr: |
+            (
+              1 -
+              (
+                node_filesystem_avail_bytes{
+                  job="node-exporter",
+                  mountpoint="/",
+                  fstype="ext4"
+                }
+                /
+                node_filesystem_size_bytes{
+                  job="node-exporter",
+                  mountpoint="/",
+                  fstype="ext4"
+                }
+              )
+            ) > 0.80
+          for: 10m
+
+          labels:
+            severity: warning
+            component: infrastructure
+
+          annotations:
+            summary: "Kubernetes node disk is almost full"
+            description: "Root filesystem on node {{ $labels.instance }} is more than 80% full."
+
+
+        # ==================================================
+        # Kubernetes node disk is critically full
+        # ==================================================
+        - alert: KubernetesNodeDiskCritical
+          expr: |
+            (
+              1 -
+              (
+                node_filesystem_avail_bytes{
+                  job="node-exporter",
+                  mountpoint="/",
+                  fstype="ext4"
+                }
+                /
+                node_filesystem_size_bytes{
+                  job="node-exporter",
+                  mountpoint="/",
+                  fstype="ext4"
+                }
+              )
+            ) > 0.90
+          for: 5m
+
+          labels:
+            severity: critical
+            component: infrastructure
+
+          annotations:
+            summary: "Kubernetes node disk is critically full"
+            description: "Root filesystem on node {{ $labels.instance }} is more than 90% full."

@@ -3,5 +3,6 @@ kind: Kustomization
 
 resources:
   - backend-alerts.yaml
+  - frontend-alerts.yaml
   - database-alerts.yaml
   - infra-alerts.yaml
