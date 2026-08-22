@@ -1,0 +1,1511 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todolist-monitoring-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  todolist-monitoring-dashboard.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": false,
+      "graphTooltip": 1,
+      "links": [],
+      "panels": [
+        {
+          "id": 1,
+          "type": "row",
+          "title": "🌐 Application Overview",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Frontend Status",
+          "description": "Blackbox probe result for the TodoList frontend service. 1 = reachable, 0 = down.",
+          "gridPos": {
+            "h": 5,
+            "w": 8,
+            "x": 0,
+            "y": 1
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "min(probe_success{job=\"todolist-frontend-blackbox\",instance=\"http://todolist-frontend-service.$namespace.svc:3000/\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "min": 0,
+              "max": 1,
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "DOWN",
+                      "color": "red"
+                    },
+                    "1": {
+                      "text": "UP",
+                      "color": "green"
+                    }
+                  }
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "justifyMode": "center",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Backend Status",
+          "description": "Ratio of available to desired replicas for the backend Deployment. Denominator is clamped to avoid NaN when spec replicas is 0.",
+          "gridPos": {
+            "h": 5,
+            "w": 8,
+            "x": 8,
+            "y": 1
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "min(kube_deployment_status_replicas_available{namespace=\"$namespace\",deployment=\"todolist-backend-deployment\"}) / clamp_min(min(kube_deployment_spec_replicas{namespace=\"$namespace\",deployment=\"todolist-backend-deployment\"}), 1)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1,
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "DOWN",
+                      "color": "red"
+                    },
+                    "1": {
+                      "text": "UP",
+                      "color": "green"
+                    }
+                  }
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "justifyMode": "center",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "MongoDB Status",
+          "description": "Ratio of ready to desired replicas for the MongoDB StatefulSet. Denominator is clamped to avoid NaN when replicas is 0.",
+          "gridPos": {
+            "h": 5,
+            "w": 8,
+            "x": 16,
+            "y": 1
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "min(kube_statefulset_status_replicas_ready{namespace=\"$namespace\",statefulset=\"todolist-database-statefulset\"}) / clamp_min(min(kube_statefulset_replicas{namespace=\"$namespace\",statefulset=\"todolist-database-statefulset\"}), 1)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1,
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "DOWN",
+                      "color": "red"
+                    },
+                    "1": {
+                      "text": "UP",
+                      "color": "green"
+                    }
+                  }
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "background",
+            "justifyMode": "center",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 5,
+          "type": "table",
+          "title": "Container Restarts (Total)",
+          "description": "Cumulative restart count per container since last pod start. Useful for spotting chronically unstable containers.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 6
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "format": "table",
+              "instant": true,
+              "expr": "sort_desc(sum by (pod, container) (kube_pod_container_status_restarts_total{namespace=\"$namespace\",container!=\"\",container!=\"POD\"}))"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true
+                },
+                "indexByName": {
+                  "pod": 0,
+                  "container": 1,
+                  "Value": 2
+                },
+                "renameByName": {
+                  "pod": "Pod",
+                  "container": "Container",
+                  "Value": "Restarts"
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Restarts"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "yellow",
+                          "value": 1
+                        },
+                        {
+                          "color": "red",
+                          "value": 3
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            }
+          }
+        },
+        {
+          "id": 6,
+          "type": "table",
+          "title": "Container Restarts (Last 1h)",
+          "description": "Restarts that occurred in the last hour, isolating fresh crash-loops from old cumulative counts.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 6
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "format": "table",
+              "instant": true,
+              "expr": "sort_desc(sum by (pod, container) (increase(kube_pod_container_status_restarts_total{namespace=\"$namespace\",container!=\"\",container!=\"POD\"}[1h])))"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true
+                },
+                "indexByName": {
+                  "pod": 0,
+                  "container": 1,
+                  "Value": 2
+                },
+                "renameByName": {
+                  "pod": "Pod",
+                  "container": "Container",
+                  "Value": "Restarts (1h)"
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Restarts (1h)"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "yellow",
+                          "value": 1
+                        },
+                        {
+                          "color": "red",
+                          "value": 3
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            }
+          }
+        },
+        {
+          "id": 7,
+          "type": "table",
+          "title": "Last Container Termination Reason",
+          "collapsed": false,
+          "description": "Last known termination reason per container (Completed, Error, OOMKilled, Unknown...). Shows the current state at all times rather than only firing during an active OOM event, so it's useful as a day-to-day diagnostic. Rows highlighted red need attention (OOMKilled/Error).",
+          "gridPos": {
+            "h": 6,
+            "w": 24,
+            "x": 0,
+            "y": 14
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "format": "table",
+              "instant": true,
+              "expr": "kube_pod_container_status_last_terminated_reason{namespace=\"$namespace\"} == 1"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "job": true,
+                  "instance": true,
+                  "endpoint": true,
+                  "service": true,
+                  "uid": true,
+                  "namespace": true,
+                  "Value": true
+                },
+                "indexByName": {
+                  "pod": 0,
+                  "container": 1,
+                  "reason": 2
+                },
+                "renameByName": {
+                  "pod": "Pod",
+                  "container": "Container",
+                  "reason": "Reason"
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                }
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Reason"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "OOMKilled": {
+                            "text": "OOMKilled",
+                            "color": "red"
+                          },
+                          "Error": {
+                            "text": "Error",
+                            "color": "red"
+                          },
+                          "Completed": {
+                            "text": "Completed",
+                            "color": "green"
+                          },
+                          "Unknown": {
+                            "text": "Unknown",
+                            "color": "yellow"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            }
+          }
+        },
+        {
+          "id": 10,
+          "type": "row",
+          "title": "⚙️ Backend",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 20
+          },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 11,
+          "type": "timeseries",
+          "title": "Backend CPU Usage vs Limit",
+          "description": "Aggregate CPU usage across all backend pods compared with the total configured CPU limit.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 21
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "Usage",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"}[5m]))"
+            },
+            {
+              "refId": "B",
+              "legendFormat": "Limit",
+              "expr": "sum(kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"todolist-backend\",resource=\"cpu\",unit=\"core\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "cores",
+              "min": 0,
+              "decimals": 3,
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "auto",
+                "spanNulls": false,
+                "axisLabel": "CPU (cores)",
+                "axisPlacement": "left"
+              }
+            }
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 12,
+          "type": "timeseries",
+          "title": "Backend Memory Usage vs Limit",
+          "description": "Aggregate working-set memory across all backend pods compared with the total configured memory limit.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 21
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "Usage",
+              "expr": "sum(container_memory_working_set_bytes{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"})"
+            },
+            {
+              "refId": "B",
+              "legendFormat": "Limit",
+              "expr": "sum(kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"todolist-backend\",resource=\"memory\",unit=\"byte\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0,
+              "decimals": 1,
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "auto",
+                "spanNulls": false,
+                "axisLabel": "Memory",
+                "axisPlacement": "left"
+              }
+            }
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 14,
+          "type": "timeseries",
+          "title": "Backend CPU Throttling (%)",
+          "description": "Percentage of CPU scheduling periods that were throttled, per backend pod. Computed as throttled periods / total periods over a 5m window. Sustained values above ~5-10% mean the CPU limit is constraining the pod even if raw usage looks below the limit line.",
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 29
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "{{pod}}",
+              "expr": "100 * sum by (pod) (rate(container_cpu_cfs_throttled_periods_total{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"}[5m])) / clamp_min(sum by (pod) (rate(container_cpu_cfs_periods_total{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"}[5m])), 0.001)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "decimals": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 5
+                  },
+                  {
+                    "color": "red",
+                    "value": 15
+                  }
+                ]
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "auto",
+                "spanNulls": false,
+                "axisLabel": "% throttled periods",
+                "axisPlacement": "left",
+                "thresholdsStyle": {
+                  "mode": "line"
+                }
+              }
+            }
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 13,
+          "type": "table",
+          "title": "Backend Pod Resource Usage",
+          "description": "Current CPU and memory usage for each TodoList backend pod compared with its configured limits.",
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 37
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "format": "table",
+              "instant": true,
+              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"}[5m]))"
+            },
+            {
+              "refId": "B",
+              "format": "table",
+              "instant": true,
+              "expr": "100 * sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"}[5m])) / clamp_min(sum by (pod) (kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"todolist-backend\",resource=\"cpu\",unit=\"core\"}), 0.001)"
+            },
+            {
+              "refId": "C",
+              "format": "table",
+              "instant": true,
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"})"
+            },
+            {
+              "refId": "D",
+              "format": "table",
+              "instant": true,
+              "expr": "100 * sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"}) / clamp_min(sum by (pod) (kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"todolist-backend\",resource=\"memory\",unit=\"byte\"}), 1)"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "joinByField",
+              "options": {
+                "byField": "pod",
+                "mode": "outer"
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "namespace": true,
+                  "container": true,
+                  "instance": true,
+                  "job": true
+                },
+                "indexByName": {
+                  "pod": 0,
+                  "Value #A": 1,
+                  "Value #B": 2,
+                  "Value #C": 3,
+                  "Value #D": 4
+                },
+                "renameByName": {
+                  "pod": "Pod",
+                  "Value #A": "CPU Usage",
+                  "Value #B": "CPU % Limit",
+                  "Value #C": "Memory Usage",
+                  "Value #D": "Memory % Limit"
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                }
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "CPU Usage"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "cores"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 3
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Memory Usage"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "CPU % Limit"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percent"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "yellow",
+                          "value": 70
+                        },
+                        {
+                          "color": "red",
+                          "value": 85
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Memory % Limit"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percent"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "yellow",
+                          "value": 70
+                        },
+                        {
+                          "color": "red",
+                          "value": 85
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            }
+          }
+        },
+        {
+          "id": 20,
+          "type": "row",
+          "title": "🗄️ MongoDB",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 45
+          },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 21,
+          "type": "timeseries",
+          "title": "MongoDB CPU Usage vs Limit",
+          "description": "Per-pod CPU usage for the MongoDB StatefulSet compared with its configured limit. Split by pod so a multi-replica replica set doesn't get blended into one confusing line.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 46
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "Usage - {{pod}}",
+              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"}[5m]))"
+            },
+            {
+              "refId": "B",
+              "legendFormat": "Limit - {{pod}}",
+              "expr": "sum by (pod) (kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"mongodb\",resource=\"cpu\",unit=\"core\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "cores",
+              "min": 0,
+              "decimals": 3,
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "auto",
+                "spanNulls": false,
+                "axisLabel": "CPU (cores)",
+                "axisPlacement": "left"
+              }
+            }
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 22,
+          "type": "timeseries",
+          "title": "MongoDB Memory Usage vs Limit",
+          "description": "Per-pod working-set memory for the MongoDB StatefulSet compared with its configured limit.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 46
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "Usage - {{pod}}",
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"})"
+            },
+            {
+              "refId": "B",
+              "legendFormat": "Limit - {{pod}}",
+              "expr": "sum by (pod) (kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"mongodb\",resource=\"memory\",unit=\"byte\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0,
+              "decimals": 1,
+              "custom": {
+                "drawStyle": "line",
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "auto",
+                "spanNulls": false,
+                "axisLabel": "Memory",
+                "axisPlacement": "left"
+              }
+            }
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 30,
+          "type": "row",
+          "title": "💾 MongoDB PVC",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 54
+          },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 31,
+          "type": "stat",
+          "title": "PVC Capacity",
+          "description": "Total storage capacity available to the MongoDB PersistentVolume (custom PVC exporter metric).",
+          "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 0,
+            "y": 55
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max(kubernetes_pvc_capacity_bytes{exported_namespace=\"$namespace\",persistentvolumeclaim=\"mongodb-pvc\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "decimals": 0,
+              "min": 0
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "orientation": "auto",
+            "textMode": "value",
+            "colorMode": "value",
+            "justifyMode": "center",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 32,
+          "type": "stat",
+          "title": "PVC Used",
+          "description": "Current filesystem space used by MongoDB on the PVC (custom PVC exporter metric).",
+          "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 6,
+            "y": 55
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max(kubernetes_pvc_used_bytes{exported_namespace=\"$namespace\",persistentvolumeclaim=\"mongodb-pvc\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "decimals": 0,
+              "min": 0
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "orientation": "auto",
+            "textMode": "value",
+            "colorMode": "value",
+            "justifyMode": "center",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 33,
+          "type": "stat",
+          "title": "PVC Available",
+          "description": "Remaining storage capacity available on the MongoDB PVC (custom PVC exporter metric).",
+          "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 12,
+            "y": 55
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max(kubernetes_pvc_capacity_bytes{exported_namespace=\"$namespace\",persistentvolumeclaim=\"mongodb-pvc\"}) - max(kubernetes_pvc_used_bytes{exported_namespace=\"$namespace\",persistentvolumeclaim=\"mongodb-pvc\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "decimals": 0,
+              "min": 0
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "orientation": "auto",
+            "textMode": "value",
+            "colorMode": "value",
+            "justifyMode": "center",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 34,
+          "type": "stat",
+          "title": "PVC Usage",
+          "description": "Percentage of the MongoDB PVC currently in use (custom PVC exporter metric, denominator clamped to avoid NaN).",
+          "gridPos": {
+            "h": 6,
+            "w": 6,
+            "x": 18,
+            "y": 55
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "100 * max(kubernetes_pvc_used_bytes{exported_namespace=\"$namespace\",persistentvolumeclaim=\"mongodb-pvc\"}) / clamp_min(max(kubernetes_pvc_capacity_bytes{exported_namespace=\"$namespace\",persistentvolumeclaim=\"mongodb-pvc\"}), 1)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 85
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "orientation": "auto",
+            "textMode": "value",
+            "colorMode": "background",
+            "justifyMode": "center",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 40,
+          "type": "row",
+          "title": "🚨 Alerts",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 61
+          },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 41,
+          "type": "stat",
+          "title": "Active Alerts",
+          "description": "Count of TodoList alerts currently firing in this namespace.",
+          "gridPos": {
+            "h": 10,
+            "w": 8,
+            "x": 0,
+            "y": 62
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "count(ALERTS{namespace=\"$namespace\",alertname=~\"TodoList.*\",alertstate=\"firing\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "orientation": "auto",
+            "textMode": "value",
+            "colorMode": "background",
+            "justifyMode": "center",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 44,
+          "type": "table",
+          "title": "Active TodoList Alerts",
+          "description": "Currently firing TodoList alerts, sorted by severity.",
+          "gridPos": {
+            "h": 10,
+            "w": 16,
+            "x": 8,
+            "y": 62
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "format": "table",
+              "instant": true,
+              "expr": "ALERTS{namespace=\"$namespace\",alertname=~\"TodoList.*\",alertstate=\"firing\"}"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "alertstate": true,
+                  "container": true,
+                  "endpoint": true,
+                  "instance": true,
+                  "job": true,
+                  "service": true,
+                  "namespace": true,
+                  "Value": true
+                },
+                "indexByName": {
+                  "alertname": 0,
+                  "component": 1,
+                  "pod": 2,
+                  "severity": 3
+                },
+                "renameByName": {
+                  "alertname": "Alert",
+                  "component": "Component",
+                  "pod": "Pod",
+                  "severity": "Severity"
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                }
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Severity"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "critical": {
+                            "text": "CRITICAL",
+                            "color": "red"
+                          },
+                          "warning": {
+                            "text": "WARNING",
+                            "color": "yellow"
+                          },
+                          "info": {
+                            "text": "INFO",
+                            "color": "blue"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            },
+            "sortBy": [
+              {
+                "displayName": "Severity",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ],
+      "schemaVersion": 39,
+      "tags": [
+        "todolist",
+        "kubernetes",
+        "prometheus",
+        "monitoring",
+        "devops"
+      ],
+      "templating": {
+        "list": [
+          {
+            "name": "namespace",
+            "label": "Environment",
+            "type": "query",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "query": "label_values(kube_deployment_status_replicas_available{namespace=~\"todolist-(staging|prod)\"}, namespace)",
+            "refresh": 1,
+            "includeAll": false,
+            "multi": false,
+            "current": {
+              "selected": true,
+              "text": "todolist-staging",
+              "value": "todolist-staging"
+            }
+          }
+        ]
+      },
+      "time": {
+        "from": "now-1h",
+        "to": "now"
+      },
+      "timepicker": {
+        "refresh_intervals": [
+          "30s",
+          "1m",
+          "5m",
+          "15m"
+        ]
+      },
+      "timezone": "browser",
+      "refresh": "30s",
+      "title": "🚀 TodoList Monitoring",
+      "uid": "todolist-monitoring",
+      "version": 21
+    }
