@@ -1,50 +1,48 @@
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: AlertmanagerConfig
-
 metadata:
-  name: todolist-alertmanager
+  name: todolist-telegram-alerts
   namespace: monitoring
+  labels:
+    release: monitoring
 
 spec:
   route:
-    receiver: telegram-notifications
+    receiver: todolist-telegram
+    matchers:
+      - name: component
+        matchType: "=~"
+        value: "frontend|backend|database"
     groupBy:
       - alertname
+      - component
       - namespace
     groupWait: 30s
     groupInterval: 5m
-    repeatInterval: 1h
+    repeatInterval: 4h
 
   receivers:
-    - name: telegram-notifications
-
+    - name: todolist-telegram
       telegramConfigs:
         - botToken:
             name: alertmanager-telegram-token
             key: bot_token
-
           chatID: -1003954919587
-
           sendResolved: true
-
           parseMode: Markdown
-
           message: |
-            🚨 *{{ .Status | toUpper }} Alert*
-
-            *Application:* Todolist App
+            {{ if eq .Status "firing" }}
+            🚨 *TodoList Alert*
+            {{ else }}
+            ✅ *TodoList Alert Resolved*
+            {{ end }}
 
             *Alert:* {{ .CommonLabels.alertname }}
-
+            *Component:* {{ .CommonLabels.component }}
+            *Namespace:* {{ .CommonLabels.namespace }}
             *Severity:* {{ .CommonLabels.severity }}
 
-            *Namespace:* {{ .CommonLabels.namespace }}
-
-            *Component:* {{ .CommonLabels.component }}
-
-            *Instance:* {{ .CommonLabels.instance }}
-
             *Description:*
-            {{ range .Alerts }}
-            • {{ .Annotations.description }}
-            {{ end }}
+            {{ .CommonAnnotations.description }}
+
+            *Status:* {{ .Status | toUpper }}
