@@ -45,12 +45,15 @@ spec:
         - alert: TodoListBackendHighCPU
           expr: |
             (
-              rate(container_cpu_usage_seconds_total{
-                namespace=~"todolist-staging|todolist-prod",
-                pod=~"todolist-backend-deployment-.*",
-                container="todolist-backend"
-              }[5m])
+              sum by (namespace, pod, container) (
+                rate(container_cpu_usage_seconds_total{
+                  namespace=~"todolist-staging|todolist-prod",
+                  pod=~"todolist-backend-deployment-.*",
+                  container="todolist-backend"
+                }[5m])
+              )
               /
+              on(namespace, pod, container)
               kube_pod_container_resource_limits{
                 namespace=~"todolist-staging|todolist-prod",
                 pod=~"todolist-backend-deployment-.*",
@@ -70,12 +73,15 @@ spec:
         - alert: TodoListBackendHighMemory
           expr: |
             (
-              container_memory_working_set_bytes{
-                namespace=~"todolist-staging|todolist-prod",
-                pod=~"todolist-backend-deployment-.*",
-                container="todolist-backend"
-              }
+              sum by (namespace, pod, container) (
+                container_memory_working_set_bytes{
+                  namespace=~"todolist-staging|todolist-prod",
+                  pod=~"todolist-backend-deployment-.*",
+                  container="todolist-backend"
+                }
+              )
               /
+              on(namespace, pod, container)
               kube_pod_container_resource_limits{
                 namespace=~"todolist-staging|todolist-prod",
                 pod=~"todolist-backend-deployment-.*",
@@ -86,8 +92,8 @@ spec:
             ) > 0.80
           for: 5m
           labels:
-            severity: warning
             component: backend
+            severity: warning
           annotations:
             summary: "TodoList backend memory usage is high"
             description: "Backend memory usage is above 80% of its memory limit in namespace {{ $labels.namespace }}."
