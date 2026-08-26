@@ -15,6 +15,19 @@ spec:
     server: https://kubernetes.default.svc
     namespace: todolist-prod
 
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      name: todolist-backend-deployment
+      jsonPointers:
+        - /spec/replicas
+
+    - group: apps
+      kind: Deployment
+      name: todolist-frontend-deployment
+      jsonPointers:
+        - /spec/replicas
+
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
