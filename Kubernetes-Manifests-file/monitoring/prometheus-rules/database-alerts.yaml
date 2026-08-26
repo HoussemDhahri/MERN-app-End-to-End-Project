@@ -44,12 +44,15 @@ spec:
         - alert: TodoListDatabaseHighCPU
           expr: |
             (
-              rate(container_cpu_usage_seconds_total{
-                namespace=~"todolist-staging|todolist-prod",
-                pod=~"todolist-database-statefulset-.*",
-                container="mongodb"
-              }[5m])
+              sum by (namespace, pod, container) (
+                rate(container_cpu_usage_seconds_total{
+                  namespace=~"todolist-staging|todolist-prod",
+                  pod=~"todolist-database-statefulset-.*",
+                  container="mongodb"
+                }[5m])
+              )
               /
+              on(namespace, pod, container)
               kube_pod_container_resource_limits{
                 namespace=~"todolist-staging|todolist-prod",
                 pod=~"todolist-database-statefulset-.*",
@@ -69,12 +72,15 @@ spec:
         - alert: TodoListDatabaseHighMemory
           expr: |
             (
-              container_memory_working_set_bytes{
-                namespace=~"todolist-staging|todolist-prod",
-                pod=~"todolist-database-statefulset-.*",
-                container="mongodb"
-              }
+              sum by (namespace, pod, container) (
+                container_memory_working_set_bytes{
+                  namespace=~"todolist-staging|todolist-prod",
+                  pod=~"todolist-database-statefulset-.*",
+                  container="mongodb"
+                }
+              )
               /
+              on(namespace, pod, container)
               kube_pod_container_resource_limits{
                 namespace=~"todolist-staging|todolist-prod",
                 pod=~"todolist-database-statefulset-.*",
@@ -94,18 +100,19 @@ spec:
         - alert: TodoListDatabasePVCAlmostFull
           expr: |
             (
-              kubelet_volume_stats_used_bytes{
-                namespace=~"todolist-staging|todolist-prod"
+              kubernetes_pvc_used_bytes{
+                exported_namespace=~"todolist-staging|todolist-prod"
               }
               /
-              kubelet_volume_stats_capacity_bytes{
-                namespace=~"todolist-staging|todolist-prod"
+              on(exported_namespace,persistentvolume,persistentvolumeclaim)
+              kubernetes_pvc_capacity_bytes{
+                exported_namespace=~"todolist-staging|todolist-prod"
               }
             ) > 0.80
           for: 10m
           labels:
-            severity: warning
             component: database
+            severity: warning
           annotations:
-            summary: "TodoList MongoDB PVC usage is high"
-            description: "A MongoDB PVC is using more than 80% of its available storage in namespace {{ $labels.namespace }}."
+            summary: TodoList MongoDB PVC usage is high
+            description: A MongoDB PVC is using more than 80% of its available storage in namespace {{ $labels.exported_namespace }}.
