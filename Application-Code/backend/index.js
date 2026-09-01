@@ -47,26 +47,15 @@ app.get('/healthz', (req, res) => {
     res.status(200).send('Healthy');
 });
 
-let lastReadyState = null;  
-// Readiness check to see if the server is ready to serve requests
+// Readiness check
+// Backend remains Ready even if MongoDB is temporarily unavailable.
+// Database-dependent requests will return HTTP 500 from the routes.
 app.get('/ready', (req, res) => {
-    // Here you can add logic to check database connection or other dependencies
-    const isDbConnected = mongoose.connection.readyState === 1;
-    if (isDbConnected !== lastReadyState) {
-        console.log(`Database readyState: ${mongoose.connection.readyState}`);
-        lastReadyState = isDbConnected;
-    }
-    
-    if (isDbConnected) {
-        res.status(200).send('Ready');
-    } else {
-        res.status(503).send('Not Ready');
-    }
+    res.status(200).send('Ready');
 });
 
 // Startup check to ensure the server has started correctly
 app.get('/started', (req, res) => {
-    // Assuming the server has started correctly if this endpoint is reachable
     res.status(200).send('Started');
 });
 
