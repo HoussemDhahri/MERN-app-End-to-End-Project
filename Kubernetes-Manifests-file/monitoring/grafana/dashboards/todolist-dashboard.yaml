@@ -1,12 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
-
 metadata:
   name: todolist-monitoring-dashboard
   namespace: monitoring
   labels:
     grafana_dashboard: "1"
-
 data:
   todolist-monitoring-dashboard.json: |
     {
@@ -47,7 +45,7 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "min(probe_success{job=\"todolist-frontend-blackbox\",instance=\"http://todolist-frontend-service.$namespace.svc:3000/\"})"
+              "expr": "min(probe_success{job=\"todolist-frontend-blackbox\",instance=\"http://todolist-frontend-service.$namespace.svc:3000/\"}) or vector(0)"
             }
           ],
           "fieldConfig": {
@@ -117,14 +115,14 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "min(kube_deployment_status_replicas_available{namespace=\"$namespace\",deployment=\"todolist-backend-deployment\"}) / clamp_min(min(kube_deployment_spec_replicas{namespace=\"$namespace\",deployment=\"todolist-backend-deployment\"}),1)"
+              "expr": "min(kube_deployment_status_replicas_available{namespace=\"$namespace\",deployment=\"todolist-backend-deployment\"} >= bool clamp_min(kube_deployment_spec_replicas{namespace=\"$namespace\",deployment=\"todolist-backend-deployment\"},1)) or vector(0)"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "min": 0,
               "max": 1,
-              "unit": "percentunit",
+              "unit": "short",
               "mappings": [
                 {
                   "type": "value",
@@ -187,14 +185,14 @@ data:
           "targets": [
             {
               "refId": "A",
-              "expr": "min(kube_statefulset_status_replicas_ready{namespace=\"$namespace\",statefulset=\"todolist-database-statefulset\"}) / clamp_min(min(kube_statefulset_replicas{namespace=\"$namespace\",statefulset=\"todolist-database-statefulset\"}),1)"
+              "expr": "min(kube_statefulset_status_replicas_ready{namespace=\"$namespace\",statefulset=\"todolist-database-statefulset\"} >= bool clamp_min(kube_statefulset_replicas{namespace=\"$namespace\",statefulset=\"todolist-database-statefulset\"},1)) or vector(0)"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "min": 0,
               "max": 1,
-              "unit": "percentunit",
+              "unit": "short",
               "mappings": [
                 {
                   "type": "value",
@@ -343,7 +341,7 @@ data:
           }
         },
         {
-          "id": 7,
+          "id": 6,
           "type": "table",
           "title": "Containers With Problems (Waiting Reason)",
           "description": "Containers currently stuck in a non-running waiting state.",
@@ -417,9 +415,9 @@ data:
           }
         },
         {
-          "id": 10,
+          "id": 7,
           "type": "row",
-          "title": "⚙️ Backend",
+          "title": "📊 Application Performance",
           "gridPos": {
             "h": 1,
             "w": 24,
@@ -430,9 +428,9 @@ data:
           "panels": []
         },
         {
-          "id": 11,
+          "id": 8,
           "type": "timeseries",
-          "title": "Backend CPU Usage vs Limit",
+          "title": "Requests/sec",
           "gridPos": {
             "h": 8,
             "w": 12,
@@ -446,20 +444,176 @@ data:
           "targets": [
             {
               "refId": "A",
-              "legendFormat": "Usage",
-              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"}[5m]))"
-            },
-            {
-              "refId": "B",
-              "legendFormat": "Limit",
-              "expr": "sum(kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"todolist-backend\",resource=\"cpu\",unit=\"core\"})"
+              "legendFormat": "Requests/sec",
+              "expr": "sum(rate(http_requests_total{namespace=\"$namespace\",job=\"todolist-backend-service\",route!~\"/metrics|/ready|/healthz\"}[5m]))"
             }
           ],
           "fieldConfig": {
             "defaults": {
-              "unit": "cores",
+              "unit": "reqps",
               "min": 0,
-              "decimals": 3,
+              "decimals": 2
+            }
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 9,
+          "type": "timeseries",
+          "title": "HTTP Error Rate (4xx + 5xx)",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 21
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "4xx + 5xx",
+              "expr": "100 * sum(rate(http_requests_total{namespace=\"$namespace\",job=\"todolist-backend-service\",route!~\"/metrics|/ready|/healthz\",status=~\"4..|5..\"}[5m])) / clamp_min(sum(rate(http_requests_total{namespace=\"$namespace\",job=\"todolist-backend-service\",route!~\"/metrics|/ready|healthz\"}[5m])),0.001)"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "decimals": 2,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 1
+                  },
+                  {
+                    "color": "red",
+                    "value": 5
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 32,
+          "type": "timeseries",
+          "title": "Errors by Status",
+          "description": "HTTP errors separated into 4xx and 5xx responses.",
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 29
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "4xx",
+              "expr": "sum(rate(http_requests_total{namespace=\"$namespace\",job=\"todolist-backend-service\",route!~\"/metrics|/ready|/healthz\",status=~\"4..\"}[5m]))"
+            },
+            {
+              "refId": "B",
+              "legendFormat": "5xx",
+              "expr": "sum(rate(http_requests_total{namespace=\"$namespace\",job=\"todolist-backend-service\",route!~\"/metrics|/ready|/healthz\",status=~\"5..\"}[5m]))"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0,
+              "decimals": 2
+            }
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 10,
+          "type": "row",
+          "title": "⚙️ Backend",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 37
+          },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 11,
+          "type": "timeseries",
+          "title": "Backend CPU Usage vs Limit (Per Pod)",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 38
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "Usage - {{pod}}",
+              "expr": "1000 * sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"}[5m]))"
+            },
+            {
+              "refId": "B",
+              "legendFormat": "Limit - Backend",
+              "expr": "1000 * max(kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"todolist-backend\",resource=\"cpu\",unit=\"core\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "suffix:m",
+              "min": 0,
+              "decimals": 0,
               "custom": {
                 "drawStyle": "line",
                 "lineWidth": 2,
@@ -484,12 +638,12 @@ data:
         {
           "id": 12,
           "type": "timeseries",
-          "title": "Backend Memory Usage vs Limit",
+          "title": "Backend Memory Usage vs Limit (Per Pod)",
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 21
+            "y": 38
           },
           "datasource": {
             "type": "prometheus",
@@ -498,13 +652,13 @@ data:
           "targets": [
             {
               "refId": "A",
-              "legendFormat": "Usage",
-              "expr": "sum(container_memory_working_set_bytes{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"})"
+              "legendFormat": "Usage - {{pod}}",
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"})"
             },
             {
               "refId": "B",
-              "legendFormat": "Limit",
-              "expr": "sum(kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"todolist-backend\",resource=\"memory\",unit=\"byte\"})"
+              "legendFormat": "Limit - Backend",
+              "expr": "max(kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"todolist-backend\",resource=\"memory\",unit=\"byte\"})"
             }
           ],
           "fieldConfig": {
@@ -537,12 +691,12 @@ data:
           "id": 13,
           "type": "table",
           "title": "Backend Pod Resource Usage",
-          "description": "Current CPU and memory usage for each backend pod compared with limits.",
+          "description": "Current CPU and memory usage for each backend pod compared with its resource limits.",
           "gridPos": {
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 29
+            "y": 46
           },
           "datasource": {
             "type": "prometheus",
@@ -553,7 +707,7 @@ data:
               "refId": "A",
               "format": "table",
               "instant": true,
-              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"}[5m]))"
+              "expr": "1000 * sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"todolist-backend\",image!=\"\"}[5m]))"
             },
             {
               "refId": "B",
@@ -593,6 +747,13 @@ data:
                   "instance": true,
                   "job": true
                 },
+                "indexByName": {
+                  "pod": 0,
+                  "Value #A": 1,
+                  "Value #B": 2,
+                  "Value #C": 3,
+                  "Value #D": 4
+                },
                 "renameByName": {
                   "pod": "Pod",
                   "Value #A": "CPU Usage",
@@ -621,27 +782,11 @@ data:
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "cores"
+                    "value": "suffix:m"
                   },
                   {
                     "id": "decimals",
-                    "value": 3
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Memory Usage"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "bytes"
-                  },
-                  {
-                    "id": "decimals",
-                    "value": 1
+                    "value": 0
                   }
                 ]
               },
@@ -684,6 +829,22 @@ data:
                         }
                       ]
                     }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Memory Usage"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
                   }
                 ]
               },
@@ -738,11 +899,11 @@ data:
               "show": false
             },
             "columnWidth": {
-              "Pod": 60,
-              "CPU Usage": 15,
-              "CPU % Limit": 15,
-              "Memory Usage": 18,
-              "Memory % Limit": 18
+              "Pod": 30,
+              "CPU Usage": 18,
+              "CPU % Limit": 18,
+              "Memory Usage": 20,
+              "Memory % Limit": 20
             }
           }
         },
@@ -754,7 +915,7 @@ data:
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 37
+            "y": 54
           },
           "datasource": {
             "type": "prometheus",
@@ -800,27 +961,27 @@ data:
           }
         },
         {
-          "id": 20,
+          "id": 15,
           "type": "row",
-          "title": "🗄️ Database",
+          "title": "🖥️ Frontend",
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 45
+            "y": 62
           },
           "collapsed": false,
           "panels": []
         },
         {
-          "id": 21,
+          "id": 16,
           "type": "timeseries",
-          "title": "MongoDB CPU Usage vs Limit",
+          "title": "Frontend CPU Usage vs Limit (Per Pod)",
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 46
+            "y": 63
           },
           "datasource": {
             "type": "prometheus",
@@ -830,19 +991,26 @@ data:
             {
               "refId": "A",
               "legendFormat": "Usage - {{pod}}",
-              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"}[5m]))"
+              "expr": "1000 * sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"todolist-frontend\",image!=\"\"}[5m]))"
             },
             {
               "refId": "B",
-              "legendFormat": "Limit - {{pod}}",
-              "expr": "sum by (pod) (kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"mongodb\",resource=\"cpu\",unit=\"core\"})"
+              "legendFormat": "Limit - Frontend",
+              "expr": "1000 * max(kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"todolist-frontend\",resource=\"cpu\",unit=\"core\"})"
             }
           ],
           "fieldConfig": {
             "defaults": {
-              "unit": "cores",
+              "unit": "suffix:m",
               "min": 0,
-              "decimals": 3
+              "decimals": 0,
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "auto",
+                "axisPlacement": "left"
+              }
             }
           },
           "options": {
@@ -858,14 +1026,14 @@ data:
           }
         },
         {
-          "id": 22,
+          "id": 17,
           "type": "timeseries",
-          "title": "MongoDB Memory Usage vs Limit",
+          "title": "Frontend Memory Usage vs Limit (Per Pod)",
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 46
+            "y": 63
           },
           "datasource": {
             "type": "prometheus",
@@ -875,19 +1043,26 @@ data:
             {
               "refId": "A",
               "legendFormat": "Usage - {{pod}}",
-              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"})"
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",container=\"todolist-frontend\",image!=\"\"})"
             },
             {
               "refId": "B",
-              "legendFormat": "Limit - {{pod}}",
-              "expr": "sum by (pod) (kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"mongodb\",resource=\"memory\",unit=\"byte\"})"
+              "legendFormat": "Limit - Frontend",
+              "expr": "max(kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"todolist-frontend\",resource=\"memory\",unit=\"byte\"})"
             }
           ],
           "fieldConfig": {
             "defaults": {
               "unit": "bytes",
               "min": 0,
-              "decimals": 2
+              "decimals": 2,
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "auto",
+                "axisPlacement": "left"
+              }
             }
           },
           "options": {
@@ -903,15 +1078,15 @@ data:
           }
         },
         {
-          "id": 23,
+          "id": 18,
           "type": "table",
-          "title": "MongoDB Pod Resource Usage",
-          "description": "Current CPU and memory usage for each MongoDB pod compared with limits.",
+          "title": "Frontend Pod Resource Usage",
+          "description": "Current CPU and memory usage for each frontend pod compared with its resource limits.",
           "gridPos": {
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 54
+            "y": 71
           },
           "datasource": {
             "type": "prometheus",
@@ -922,25 +1097,25 @@ data:
               "refId": "A",
               "format": "table",
               "instant": true,
-              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"}[5m]))"
+              "expr": "1000 * sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"todolist-frontend\",image!=\"\"}[5m]))"
             },
             {
               "refId": "B",
               "format": "table",
               "instant": true,
-              "expr": "100 * sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"}[5m])) / clamp_min(sum by (pod) (kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"mongodb\",resource=\"cpu\",unit=\"core\"}),0.001)"
+              "expr": "100 * sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"todolist-frontend\",image!=\"\"}[5m])) / clamp_min(sum by (pod) (kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"todolist-frontend\",resource=\"cpu\",unit=\"core\"}),0.001)"
             },
             {
               "refId": "C",
               "format": "table",
               "instant": true,
-              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"})"
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",container=\"todolist-frontend\",image!=\"\"})"
             },
             {
               "refId": "D",
               "format": "table",
               "instant": true,
-              "expr": "100 * sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"}) / clamp_min(sum by (pod) (kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"mongodb\",resource=\"memory\",unit=\"byte\"}),1)"
+              "expr": "100 * sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",container=\"todolist-frontend\",image!=\"\"}) / clamp_min(sum by (pod) (kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"todolist-frontend\",resource=\"memory\",unit=\"byte\"}),1)"
             }
           ],
           "transformations": [
@@ -961,6 +1136,13 @@ data:
                   "container": true,
                   "instance": true,
                   "job": true
+                },
+                "indexByName": {
+                  "pod": 0,
+                  "Value #A": 1,
+                  "Value #B": 2,
+                  "Value #C": 3,
+                  "Value #D": 4
                 },
                 "renameByName": {
                   "pod": "Pod",
@@ -990,27 +1172,11 @@ data:
                 "properties": [
                   {
                     "id": "unit",
-                    "value": "cores"
+                    "value": "suffix:m"
                   },
                   {
                     "id": "decimals",
-                    "value": 3
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Memory Usage"
-                },
-                "properties": [
-                  {
-                    "id": "unit",
-                    "value": "bytes"
-                  },
-                  {
-                    "id": "decimals",
-                    "value": 1
+                    "value": 0
                   }
                 ]
               },
@@ -1053,6 +1219,22 @@ data:
                         }
                       ]
                     }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Memory Usage"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
                   }
                 ]
               },
@@ -1107,29 +1289,667 @@ data:
               "show": false
             },
             "columnWidth": {
-              "Pod": 60,
-              "CPU Usage": 15,
-              "CPU % Limit": 15,
-              "Memory Usage": 18,
-              "Memory % Limit": 18
+              "Pod": 30,
+              "CPU Usage": 18,
+              "CPU % Limit": 18,
+              "Memory Usage": 20,
+              "Memory % Limit": 20
             }
           }
         },
         {
-          "id": 30,
+          "id": 19,
+          "type": "row",
+          "title": "🗄️ Database",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 79
+          },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 20,
+          "type": "timeseries",
+          "title": "MongoDB CPU Usage vs Limit (Per Pod)",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 80
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "Usage - {{pod}}",
+              "expr": "1000 * sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"}[5m]))"
+            },
+            {
+              "refId": "B",
+              "legendFormat": "Limit - MongoDB",
+              "expr": "1000 * max(kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"mongodb\",resource=\"cpu\",unit=\"core\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "suffix:m",
+              "min": 0,
+              "decimals": 0,
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "auto",
+                "axisPlacement": "left"
+              }
+            }
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 21,
+          "type": "timeseries",
+          "title": "MongoDB Memory Usage vs Limit (Per Pod)",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 80
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "legendFormat": "Usage - {{pod}}",
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"})"
+            },
+            {
+              "refId": "B",
+              "legendFormat": "Limit - MongoDB",
+              "expr": "max(kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"mongodb\",resource=\"memory\",unit=\"byte\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0,
+              "decimals": 2,
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "auto",
+                "axisPlacement": "left"
+              }
+            }
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 22,
+          "type": "table",
+          "title": "MongoDB Pod Resource Usage",
+          "description": "Current CPU and memory usage for each MongoDB pod compared with its resource limits.",
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 88
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "format": "table",
+              "instant": true,
+              "expr": "1000 * sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"}[5m]))"
+            },
+            {
+              "refId": "B",
+              "format": "table",
+              "instant": true,
+              "expr": "100 * sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"}[5m])) / clamp_min(sum by (pod) (kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"mongodb\",resource=\"cpu\",unit=\"core\"}),0.001)"
+            },
+            {
+              "refId": "C",
+              "format": "table",
+              "instant": true,
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"})"
+            },
+            {
+              "refId": "D",
+              "format": "table",
+              "instant": true,
+              "expr": "100 * sum by (pod) (container_memory_working_set_bytes{namespace=\"$namespace\",container=\"mongodb\",image!=\"\"}) / clamp_min(sum by (pod) (kube_pod_container_resource_limits{namespace=\"$namespace\",container=\"mongodb\",resource=\"memory\",unit=\"byte\"}),1)"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "joinByField",
+              "options": {
+                "byField": "pod",
+                "mode": "outer"
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "namespace": true,
+                  "container": true,
+                  "instance": true,
+                  "job": true
+                },
+                "indexByName": {
+                  "pod": 0,
+                  "Value #A": 1,
+                  "Value #B": 2,
+                  "Value #C": 3,
+                  "Value #D": 4
+                },
+                "renameByName": {
+                  "pod": "Pod",
+                  "Value #A": "CPU Usage",
+                  "Value #B": "CPU % Limit",
+                  "Value #C": "Memory Usage",
+                  "Value #D": "Memory % Limit"
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                }
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "CPU Usage"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "suffix:m"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "CPU % Limit"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percent"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "yellow",
+                          "value": 70
+                        },
+                        {
+                          "color": "red",
+                          "value": 85
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Memory Usage"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Memory % Limit"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percent"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "yellow",
+                          "value": 70
+                        },
+                        {
+                          "color": "red",
+                          "value": 85
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            },
+            "columnWidth": {
+              "Pod": 30,
+              "CPU Usage": 18,
+              "CPU % Limit": 18,
+              "Memory Usage": 20,
+              "Memory % Limit": 20
+            }
+          }
+        },
+        {
+          "id": 23,
+          "type": "row",
+          "title": "⭐ HPA",
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 96
+          },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 24,
+          "type": "stat",
+          "title": "Backend HPA",
+          "gridPos": {
+            "h": 8,
+            "w": 6,
+            "x": 0,
+            "y": 97
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "kube_horizontalpodautoscaler_status_current_replicas{namespace=\"$namespace\",horizontalpodautoscaler=\"todolist-backend-hpa\"}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "value",
+            "colorMode": "value",
+            "justifyMode": "center",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 25,
+          "type": "stat",
+          "title": "Frontend HPA",
+          "gridPos": {
+            "h": 8,
+            "w": 6,
+            "x": 6,
+            "y": 97
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "kube_horizontalpodautoscaler_status_current_replicas{namespace=\"$namespace\",horizontalpodautoscaler=\"todolist-frontend-hpa\"}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "decimals": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "value",
+            "colorMode": "value",
+            "justifyMode": "center",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 26,
+          "type": "table",
+          "title": "HPA Scaling Overview",
+          "description": "Current, minimum and maximum replicas for each HPA.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 97
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "format": "table",
+              "instant": true,
+              "expr": "kube_horizontalpodautoscaler_status_current_replicas{namespace=\"$namespace\",horizontalpodautoscaler=~\"todolist-(backend|frontend)-hpa\"}"
+            },
+            {
+              "refId": "B",
+              "format": "table",
+              "instant": true,
+              "expr": "kube_horizontalpodautoscaler_spec_min_replicas{namespace=\"$namespace\",horizontalpodautoscaler=~\"todolist-(backend|frontend)-hpa\"}"
+            },
+            {
+              "refId": "C",
+              "format": "table",
+              "instant": true,
+              "expr": "kube_horizontalpodautoscaler_spec_max_replicas{namespace=\"$namespace\",horizontalpodautoscaler=~\"todolist-(backend|frontend)-hpa\"}"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "joinByField",
+              "options": {
+                "byField": "horizontalpodautoscaler",
+                "mode": "inner"
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "namespace": true,
+                  "endpoint": true,
+                  "instance": true,
+                  "job": true,
+                  "pod": true,
+                  "service": true,
+                  "container": true
+                },
+                "indexByName": {
+                  "horizontalpodautoscaler": 0,
+                  "Value #A": 1,
+                  "Value #B": 2,
+                  "Value #C": 3
+                },
+                "renameByName": {
+                  "horizontalpodautoscaler": "Workload",
+                  "Value #A": "Current",
+                  "Value #B": "Min",
+                  "Value #C": "Max"
+                }
+              }
+            },
+            {
+              "id": "renameByRegex",
+              "options": {
+                "regex": "^todolist-backend-hpa$",
+                "rename": "Backend"
+              }
+            },
+            {
+              "id": "renameByRegex",
+              "options": {
+                "regex": "^todolist-frontend-hpa$",
+                "rename": "Frontend"
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "decimals": 0,
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                }
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Current"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "green",
+                          "value": null
+                        },
+                        {
+                          "color": "yellow",
+                          "value": 4
+                        },
+                        {
+                          "color": "red",
+                          "value": 6
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Min"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Max"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "footer": {
+              "show": false
+            },
+            "columnWidth": {
+              "Workload": 40,
+              "Current": 20,
+              "Min": 18,
+              "Max": 18
+            }
+          }
+        },
+        {
+          "id": 27,
           "type": "row",
           "title": "💾 Persistent Volumes",
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 62
+            "y": 105
           },
           "collapsed": false,
           "panels": []
         },
         {
-          "id": 31,
+          "id": 28,
           "type": "table",
           "title": "PVC Storage Overview",
           "description": "All PVCs in the selected namespace.",
@@ -1137,7 +1957,7 @@ data:
             "h": 10,
             "w": 24,
             "x": 0,
-            "y": 63
+            "y": 106
           },
           "datasource": {
             "type": "prometheus",
@@ -1315,27 +2135,27 @@ data:
           }
         },
         {
-          "id": 40,
+          "id": 29,
           "type": "row",
           "title": "🚨 Alerts",
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 74
+            "y": 116
           },
           "collapsed": false,
           "panels": []
         },
         {
-          "id": 41,
+          "id": 30,
           "type": "stat",
           "title": "Active Alerts",
           "gridPos": {
             "h": 10,
             "w": 8,
             "x": 0,
-            "y": 75
+            "y": 117
           },
           "datasource": {
             "type": "prometheus",
@@ -1381,7 +2201,7 @@ data:
           }
         },
         {
-          "id": 44,
+          "id": 31,
           "type": "table",
           "title": "Active TodoList Alerts",
           "description": "Currently firing TodoList alerts.",
@@ -1389,7 +2209,7 @@ data:
             "h": 10,
             "w": 16,
             "x": 8,
-            "y": 75
+            "y": 117
           },
           "datasource": {
             "type": "prometheus",
@@ -1500,5 +2320,5 @@ data:
       "refresh": "30s",
       "title": "🚀 TodoList Monitoring",
       "uid": "todolist-monitoring",
-      "version": 27
+      "version": 31
     }
