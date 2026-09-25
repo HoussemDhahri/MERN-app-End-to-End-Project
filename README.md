@@ -11,14 +11,19 @@
 <img src="https://img.shields.io/badge/MongoDB-Database-47A248?style=for-the-badge&logo=mongodb&logoColor=white"/>
 <img src="https://img.shields.io/badge/React-Frontend-61DAFB?style=for-the-badge&logo=react&logoColor=black"/>
 <img src="https://img.shields.io/badge/Node.js-Backend-339933?style=for-the-badge&logo=nodedotjs&logoColor=white"/>
+<img src="https://img.shields.io/badge/SonarQube-Code%20Quality-4E9BCD?style=for-the-badge&logo=sonarqube&logoColor=white"/>
+<img src="https://img.shields.io/badge/Trivy-Security%20Scanning-1904DA?style=for-the-badge&logo=aquasecurity&logoColor=white"/>
 <img src="https://img.shields.io/badge/Prometheus-Monitoring-E6522C?style=for-the-badge&logo=prometheus&logoColor=white"/>
 <img src="https://img.shields.io/badge/Grafana-Dashboards-F46800?style=for-the-badge&logo=grafana&logoColor=white"/>
 <img src="https://img.shields.io/badge/Kustomize-Overlays-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white"/>
+<img src="https://img.shields.io/badge/k6-Load%20Testing-7D64FF?style=for-the-badge&logo=k6&logoColor=white"/>
 
 <br/>
 <br/>
 
-> **A production-grade DevOps pipeline** that automates the full software delivery lifecycle of the **TodoList MERN application** (MongoDB, Express, React, Node.js) — from source code to a fully monitored, autoscaled, secret-encrypted Kubernetes deployment — using GitOps with an ArgoCD **App-of-Apps** pattern.
+> **A production-grade DevOps pipeline** that automates the full software delivery lifecycle of the **TodoList MERN application** (MongoDB, Express, React, Node.js) — from source code, through security/quality scanning, to a fully monitored, autoscaled, secret-encrypted Kubernetes deployment — using GitOps with an ArgoCD **App-of-Apps** pattern.
+>
+> The application itself (`Application-Code/`) is a third-party MERN base; the **Jenkins CI/CD pipelines** and the entire **Kubernetes-Manifests-file/** GitOps setup (ArgoCD, Kustomize base/overlays, monitoring stack) were built on top of it.
 
 </div>
 
@@ -30,9 +35,11 @@
 - [🏗️ Architecture](#️-architecture)
 - [📁 Project Structure](#-project-structure)
 - [🔄 CI/CD Pipeline](#-cicd-pipeline)
+- [🔍 Code Quality & Security Scanning](#-code-quality--security-scanning)
 - [☸️ Kubernetes & GitOps](#️-kubernetes--gitops)
 - [🔐 Secrets Management (Sealed Secrets)](#-secrets-management-sealed-secrets)
 - [📈 Monitoring Stack](#-monitoring-stack)
+- [🧪 Load Testing (k6)](#-load-testing-k6)
 - [⚙️ Prerequisites](#️-prerequisites)
 - [🚀 Getting Started](#-getting-started)
 - [🌍 Environments](#-environments)
@@ -42,18 +49,20 @@
 
 ## 🎯 Overview
 
-This project implements a **complete DevOps pipeline** for the **TodoList** MERN application (MongoDB, Express/Node.js backend, React frontend). It demonstrates industry best practices for:
+This project implements a **complete DevOps pipeline** around the **TodoList** MERN application (MongoDB, Express/Node.js backend, React frontend). It demonstrates industry best practices for:
 
 | Pillar | Implementation |
 |--------|---------------|
-| 🔄 **Continuous Integration** | Jenkins pipelines (separate `Jenkinsfile` for backend & frontend) triggered on every push |
+| 🔄 **Continuous Integration** | Two Jenkins pipelines (`Jenkinsfile-backend`, `Jenkinsfile-frontend`), triggered automatically via GitHub webhook (`githubPush()`) |
+| 🔍 **Code Quality & Security** | **SonarQube** static analysis + Quality Gate, and **Trivy** filesystem & image scanning (vulnerabilities + secrets), on every build |
 | 📦 **Containerization** | Independent Dockerfiles per service, orchestrated locally via `docker-compose.yaml` |
-| 🚢 **Continuous Delivery** | GitOps with **ArgoCD App-of-Apps** — Staging & Prod applications managed declaratively |
+| 🚢 **Continuous Delivery** | GitOps with **ArgoCD App-of-Apps** — 6 child Applications (Staging, Prod, Monitoring, Blackbox Exporter, PVC Exporter, Load Test) managed declaratively |
 | ☸️ **Orchestration** | Kubernetes with Kustomize (`base` + per-environment `overlays`) |
 | 🔐 **Secrets Management** | **Bitnami Sealed Secrets** — encrypted secrets committed safely to Git, per environment |
 | 🗄️ **Database** | MongoDB deployed as a `StatefulSet` with a `mongodb-exporter` sidecar; `mongo-express` UI available in **staging only** |
 | 📈 **Autoscaling** | Horizontal Pod Autoscaler (HPA) for backend & frontend — currently enabled in **prod only** |
-| 📊 **Monitoring** | Prometheus + Grafana + Alertmanager (Telegram alerts) + Blackbox uptime probing, all wired into ArgoCD as a dedicated Application |
+| 📊 **Monitoring** | Prometheus + Grafana + Alertmanager (Telegram alerts) + Blackbox uptime probing + a custom local-PVC storage exporter, each wired into ArgoCD |
+| 🧪 **Load Testing** | **k6**-based load generator Job, deployed as an ArgoCD Sync Hook in `prod`, also runnable on demand as its own ArgoCD Application |
 
 ---
 
@@ -69,48 +78,61 @@ This project implements a **complete DevOps pipeline** for the **TodoList** MERN
                     ┌──────────────▼──────────────┐
                     │       JENKINS CI/CD          │
                     │                              │
-                    │  ✅ Checkout & Build          │
-                    │  ✅ Install Dependencies      │
+                    │  ✅ Checkout & Set Image Tag  │
+                    │  ⚙️  Install Dependencies      │
+                    │  🔬 Trivy FS Scan              │
+                    │  📊 SonarQube + Quality Gate   │
                     │  🐳 Docker Build (per service)│
-                    │  📤 Push to Registry          │
-                    │  🔄 Update Kustomize Image    │
-                    │  🔄 Git Push (GitOps repo)    │
+                    │  🔬 Trivy Image Scan           │
+                    │  📤 Push to Registry           │
+                    │  🔄 Update Kustomize Image     │
+                    │  🔄 Git Push (GitOps repo)     │
                     └──────┬────────────┬──────────┘
                            │            │
                ┌───────────▼──┐    ┌────▼────────────┐
-               │   Registry   │    │   GitHub Repo    │
-               │  (Docker)    │    │ (GitOps Source)  │
+               │   DockerHub  │    │   GitHub Repo    │
+               │  (Registry)  │    │ (GitOps Source)  │
                └──────────────┘    └────────┬─────────┘
                                             │
                                ┌────────────▼─────────────┐
                                │   ArgoCD "todolist-app"   │
                                │   App-of-Apps Pattern     │
-                               └──┬──────────┬────────┬───┘
-                                  │          │        │
-                     ┌────────────▼─┐  ┌─────▼─────┐  │
-                     │ todolist-    │  │ todolist-  │  │
-                     │ staging (ns) │  │ prod (ns)  │  │
-                     │              │  │            │  │
-                     │  Frontend    │  │ Frontend   │  │
-                     │  Backend     │  │ Backend    │  │
-                     │  MongoDB     │  │ MongoDB    │  │
-                     │  Mongo-Expr  │  │ HPA        │  │
-                     │  Ingress     │  │ Ingress    │  │
-                     │  Sealed-Sec  │  │ Sealed-Sec │  │
-                     └──────────────┘  └────────────┘  │
-                                                        │
-                                          ┌─────────────▼──────────────┐
-                                          │    monitoring namespace     │
-                                          │                             │
-                                          │  📈 Prometheus Rules         │
-                                          │  📊 Grafana Dashboard        │
-                                          │  🔎 ServiceMonitors          │
-                                          │  🌐 Blackbox Probe (uptime)  │
-                                          │  🔔 Alertmanager → Telegram  │
-                                          └─────────────────────────────┘
+                               └─┬──────┬──────┬─────┬───┬─┘
+                                 │      │      │     │   │
+                    ┌────────────▼─┐ ┌──▼─────┐│     │   │
+                    │ todolist-    │ │todolist-││     │   │
+                    │ staging (ns) │ │prod (ns)││     │   │
+                    │  Frontend    │ │ Frontend││     │   │
+                    │  Backend     │ │ Backend ││     │   │
+                    │  MongoDB     │ │ MongoDB ││     │   │
+                    │  Mongo-Expr  │ │ HPA     ││     │   │
+                    │  Ingress     │ │ Ingress ││     │   │
+                    │  Sealed-Sec  │ │ Sealed-S││     │   │
+                    │              │ │ Loadgen ││     │   │
+                    └──────────────┘ └─────────┘│     │   │
+                                                 │     │   │
+                                   ┌─────────────▼─┐   │   │
+                                   │  monitoring ns │   │   │
+                                   │ (4 Applications│   │   │
+                                   │  land here)    │   │   │
+                                   │                │   │   │
+                                   │ 📈 Prom Rules   │   │   │
+                                   │ 📊 Grafana Dash │   │   │
+                                   │ 🔔 Alertmanager │   │   │
+                                   │ 🔎 ServiceMons  │◄──┘   │
+                                   │ 🌐 Blackbox Exp │◄──────┘  (own Helm-based App)
+                                   │ 💾 Local PVC Exp│◄────────  (own App)
+                                   └────────────────┘
+                                                              │
+                                            ┌─────────────────▼──┐
+                                            │  todolist-loadtest  │
+                                            │  (standalone k6 App)│
+                                            │  → todolist-prod ns │
+                                            │  manual sync only    │
+                                            └─────────────────────┘
 ```
 
-> ℹ️ **ArgoCD** and the **kube-prometheus-stack** are installed via **Helm** into their own dedicated namespaces (`argocd` and `monitoring`), while all application workloads and the monitoring resources (rules, dashboards, probes) are synced declaratively through the **App-of-Apps** ArgoCD pattern. The `todolist-staging` and `todolist-prod` namespaces are auto-created by ArgoCD (`CreateNamespace=true`).
+> ℹ️ **ArgoCD** and the **kube-prometheus-stack** are installed via **Helm** into their own dedicated namespaces (`argocd` and `monitoring`), while every application workload and every monitoring resource is synced declaratively through the **App-of-Apps** pattern. The `todolist-staging`, `todolist-prod` and `monitoring` namespaces are auto-created by ArgoCD (`CreateNamespace=true`). The **Blackbox Exporter** and the **local PVC storage exporter** are *not* bundled inside the main `monitoring` Kustomize app — each is deployed by its own dedicated ArgoCD Application. The **k6 load generator** ships both bundled inside the `prod` overlay (as an ArgoCD Sync Hook Job) and as its own standalone ArgoCD Application (`todolist-loadtest`) for on-demand runs.
 
 ---
 
@@ -120,96 +142,115 @@ This project implements a **complete DevOps pipeline** for the **TodoList** MERN
 MERN-app-End-to-End-Project/
 │
 ├── Application-Code/
-│   ├── backend/                        # Node.js / Express API source
-│   ├── frontend/                       # React application source
-│   └── docker-compose.yaml             # Local multi-container dev environment
+│   ├── backend/                          # Node.js / Express API source
+│   ├── frontend/                         # React application source
+│   └── docker-compose.yaml               # Local multi-container dev environment
 │
 ├── Jenkins/
-│   ├── Jenkinsfile-backend              # CI/CD pipeline for the backend service
-│   └── Jenkinsfile-frontend             # CI/CD pipeline for the frontend service
+│   ├── Jenkinsfile-backend                # CI/CD pipeline for the backend service
+│   └── Jenkinsfile-frontend               # CI/CD pipeline for the frontend service
 │
 └── Kubernetes-Manifests-file/
     │
     ├── argocd/
-    │   ├── applications/
-    │   │   ├── monitoring.yaml         # ArgoCD Application → monitoring stack
-    │   │   ├── prod.yaml               # ArgoCD Application → overlays/prod
-    │   │   └── staging.yaml            # ArgoCD Application → overlays/staging
-    │   └── app-of-apps.yaml            # Root ArgoCD Application "todolist-app"
+    │   ├── app-of-apps.yaml               # Root ArgoCD Application "todolist-app"
+    │   └── applications/
+    │       ├── blackbox-exporter.yaml     # ArgoCD App → Helm chart + custom Probe CR (monitoring ns)
+    │       ├── loadtest.yaml              # ArgoCD App → overlays/prod/loadgenerator (manual sync)
+    │       ├── monitoring.yaml            # ArgoCD App → monitoring/ (alertmanager+grafana+rules+servicemonitors)
+    │       ├── prod.yaml                  # ArgoCD App → overlays/prod
+    │       ├── pvc-exporter.yaml          # ArgoCD App → monitoring/pvc-exporter
+    │       └── staging.yaml               # ArgoCD App → overlays/staging
     │
     ├── base/
-    │   ├── kustomization.yaml          # Aggregates frontend + backend + database
+    │   ├── kustomization.yaml             # Aggregates frontend + backend + database
     │   │
     │   ├── backend/
-    │   │   ├── deployment.yaml         # todolist-backend-deployment
+    │   │   ├── deployment.yaml            # todolist-backend-deployment
     │   │   ├── kustomization.yaml
     │   │   └── service.yaml
     │   │
     │   ├── database/
     │   │   ├── configmap.yaml
     │   │   ├── kustomization.yaml
-    │   │   ├── pvc.yaml                # mongodb-pvc (1Gi)
-    │   │   ├── secret.yaml             # base MongoDB secret (overridden by sealed secrets per env)
-    │   │   ├── service.yaml            # exposes mongodb (27017) + metrics (9216)
-    │   │   └── statefulset.yaml        # mongodb + mongodb-exporter sidecar
+    │   │   ├── pvc.yaml                   # mongodb-pvc (1Gi)
+    │   │   ├── secret.yaml                # base MongoDB secret (overridden by sealed secrets per env)
+    │   │   ├── service.yaml               # exposes mongodb (27017) + metrics (9216)
+    │   │   └── statefulset.yaml           # mongodb + mongodb-exporter sidecar
     │   │
     │   └── frontend/
     │       ├── configmap.yaml
-    │       ├── deployment.yaml         # todolist-frontend-deployment
+    │       ├── deployment.yaml            # todolist-frontend-deployment
     │       ├── kustomization.yaml
     │       └── service.yaml
     │
-    ├── monitoring/                      # Synced as its own ArgoCD Application
-    │   ├── kustomization.yaml
+    ├── monitoring/                         # Core stack synced by "monitoring-todolist-app"
+    │   ├── kustomization.yaml              # aggregates: alertmanager, grafana, prometheus-rules, servicemonitors
     │   │
     │   ├── alertmanager/
-    │   │   ├── alertmanager-config.yaml   # AlertmanagerConfig → routes to Telegram
+    │   │   ├── alertmanager-config.yaml    # AlertmanagerConfig → routes to Telegram
     │   │   ├── kustomization.yaml
     │   │   ├── sealed-secret-telegram.yaml # Encrypted Telegram bot token
     │   │   └── secret.yaml
     │   │
-    │   ├── blackbox/
-    │   │   ├── frontend-probe.yaml     # Probe: HTTP uptime check (staging + prod frontend)
-    │   │   └── kustomization.yaml
+    │   ├── blackbox-exporter/              # NOT part of monitoring/kustomization.yaml — synced by its own ArgoCD App
+    │   │   ├── kustomization.yaml
+    │   │   ├── values.yaml                 # Helm values for the prometheus-blackbox-exporter chart
+    │   │   └── probes/
+    │   │       ├── frontend-probe.yaml     # Probe CR: HTTP uptime check (staging + prod frontend)
+    │   │       └── kustomization.yaml
     │   │
     │   ├── grafana/
     │   │   ├── kustomization.yaml
     │   │   └── dashboards/
     │   │       ├── kustomization.yaml
-    │   │       └── todolist-dashboard.yaml   # Custom Grafana dashboard (ConfigMap)
+    │   │       └── todolist-dashboard.yaml # Custom Grafana dashboard (ConfigMap)
     │   │
     │   ├── prometheus-rules/
-    │   │   ├── backend-alerts.yaml     # Down / restarts / CPU / memory
-    │   │   ├── database-alerts.yaml    # Down / restarts / CPU / memory / PVC usage
-    │   │   ├── frontend-alerts.yaml    # Down / restarts
+    │   │   ├── backend-alerts.yaml         # Down / high CPU / high memory / restarts
+    │   │   ├── database-alerts.yaml        # Down / CPU / memory / restarts / PVC almost full
+    │   │   ├── frontend-alerts.yaml        # Down / restarts
     │   │   └── kustomization.yaml
+    │   │
+    │   ├── pvc-exporter/                   # NOT part of monitoring/kustomization.yaml — synced by its own ArgoCD App
+    │   │   ├── clusterrole.yaml            # Read access to PV/PVC/Node/StorageClass
+    │   │   ├── clusterrolebinding.yaml
+    │   │   ├── daemonset.yaml              # local-pvc-exporter (one pod per node, hostPath mount)
+    │   │   ├── kustomization.yaml
+    │   │   ├── service.yaml
+    │   │   ├── serviceaccount.yaml
+    │   │   └── servicemonitor.yaml
     │   │
     │   └── servicemonitors/
     │       ├── backend-servicemonitor.yaml
-    │       ├── database-servicemonitor.yaml   # scrapes mongodb-exporter metrics
+    │       ├── database-servicemonitor.yaml # scrapes mongodb-exporter metrics
     │       └── kustomization.yaml
     │
     └── overlays/
         ├── prod/
-        │   ├── kustomization.yaml      # base + hpa + ingress + secrets
+        │   ├── kustomization.yaml          # base + hpa + ingress + secrets + loadgenerator
         │   ├── hpa/
         │   │   ├── hpa-backend.yaml
         │   │   ├── hpa-frontend.yaml
         │   │   └── kustomization.yaml
         │   ├── ingress/
-        │   │   ├── ingress.yaml        # host: todolist.local
+        │   │   ├── ingress.yaml            # host: todolist.local
+        │   │   └── kustomization.yaml
+        │   ├── loadgenerator/
+        │   │   ├── configmap.yaml          # k6 script + env vars (target URLs, VUs)
+        │   │   ├── job.yaml                # k6 Job, run as an ArgoCD Sync Hook
         │   │   └── kustomization.yaml
         │   └── secrets/
         │       ├── kustomization.yaml
         │       └── sealed-secret-database.yaml
         │
         └── staging/
-            ├── kustomization.yaml      # base + mongo-express + secrets + ingress
+            ├── kustomization.yaml          # base + mongo-express + secrets + ingress
             ├── ingress/
-            │   ├── ingress.yaml        # host: staging.local (+ /mongo-express path)
+            │   ├── ingress.yaml            # host: staging.local (+ /mongo-express path)
             │   └── kustomization.yaml
             ├── mongo-express/
-            │   ├── deployment.yaml     # DB admin UI (staging only)
+            │   ├── deployment.yaml         # DB admin UI (staging only)
             │   ├── kustomization.yaml
             │   ├── secret.yaml
             │   └── service.yaml
@@ -223,38 +264,52 @@ MERN-app-End-to-End-Project/
 
 ## 🔄 CI/CD Pipeline
 
-Two independent Jenkins pipelines handle each service separately, triggered on push to their respective paths:
+Both `Jenkinsfile-backend` and `Jenkinsfile-frontend` follow the same shape, and are auto-triggered on every push via `githubPush()`. They run with `nodejs 'node18'`, keep the last **2** builds (`buildDiscarder`), enforce a **60-minute** timeout, and disallow concurrent builds.
 
 ```
 🧹 Clean Workspace
     │
     ▼
-📥 Checkout (GitHub)
+📥 Checkout (GitHub, branch main)
     │
     ▼
-🏷️  Set Image Tag ──────────── git commit SHA / build number
+🏷️  Set Image Tag ──────── latest git tag, else "sha-<short commit>"
     │
     ▼
 ⚙️  Install Dependencies (npm ci)
     │
     ▼
-🧪 Lint + Unit Tests
+🔬 Trivy FS Scan ──────── vuln + secret scan, HIGH/CRITICAL, non-blocking (report archived)
     │
     ▼
-🐳 Docker Build ──────────────── backend or frontend image
+📊 SonarQube Analysis
     │
     ▼
-📤 Push to Registry
+🚦 Quality Gate ────────── backend: non-blocking · frontend: blocking (aborts on failure)
     │
     ▼
-🔄 Update Kustomize Image Tag ── kustomize edit set image
+🐳 Docker Build ─────────  labeled with image tag / build number / build date
     │
     ▼
-🔄 Git Push (GitOps repo) ────── overlays/staging (or prod)
+🔬 Trivy Image Scan ─────  full report (non-blocking) + CRITICAL-only gate (blocking, fails build)
+    │
+    ▼
+📤 Push to DockerHub ────  <tag> + latest
+    │
+    ▼
+🔄 Update Staging ───────  kustomize edit set image → overlays/staging → git commit & push
+    │
+    ▼
+✋ Deploy Production ────  only runs when the APPLY_PROD parameter is set to true
+    │
+    ▼
+🔄 Update Prod ──────────  kustomize edit set image → overlays/prod → git commit & push (APPLY_PROD only)
     │
     ▼
 ♻️  ArgoCD Auto-Sync
 ```
+
+> The **`APPLY_PROD`** boolean build parameter (default `false`) controls whether a given run also promotes the image straight to the `overlays/prod` overlay. Left unset, every push only updates **staging**; production promotion is an explicit, opt-in action.
 
 ### Pipelines
 
@@ -274,6 +329,20 @@ This spins up the **frontend**, **backend**, and **MongoDB** locally for fast it
 
 ---
 
+## 🔍 Code Quality & Security Scanning
+
+Every pipeline run is gated by two layers of automated scanning before an image is ever pushed:
+
+| Tool | Stage | Scope | Behavior |
+|------|-------|-------|----------|
+| **Trivy (filesystem)** | `Trivy FS Scan` | Source dependencies + secrets, HIGH/CRITICAL | Report-only (`exit-code 0`), archived as `trivy-fs-report.json` |
+| **SonarQube** | `SonarQube Analysis` + `Quality Gate` | Static code analysis (`sonar.sources=.`) | Backend: informational only · Frontend: blocks the pipeline on failure |
+| **Trivy (image)** | `Trivy Image Scan` | Built Docker image, HIGH/CRITICAL then CRITICAL-only | First pass is report-only (`trivy-report.json`); second pass fails the build (`exit-code 1`) on any CRITICAL CVE (`trivy-critical-report.json`) |
+
+Both projects are registered in SonarQube as `todolist-backend` and `todolist-frontend`, scanned via the `sonarqube-scanner` Jenkins tool and the `SonarQube-Server` server configuration.
+
+---
+
 ## ☸️ Kubernetes & GitOps
 
 This project follows the **App-of-Apps** GitOps pattern with ArgoCD.
@@ -281,10 +350,13 @@ This project follows the **App-of-Apps** GitOps pattern with ArgoCD.
 ### How It Works
 
 1. `app-of-apps.yaml` defines the root Application **`todolist-app`**, which points to the `argocd/applications` folder and lets ArgoCD discover the child Applications automatically.
-2. Three child Applications live under `argocd/applications/`:
+2. **Six** child Applications live under `argocd/applications/`:
    - `staging.yaml` (**todolist-staging**) → syncs `overlays/staging` into namespace `todolist-staging`, fully automated (`prune` + `selfHeal`)
    - `prod.yaml` (**todolist-prod**) → syncs `overlays/prod` into namespace `todolist-prod`, with `ignoreDifferences` on `spec.replicas` for both Deployments (so HPA-driven scaling isn't reverted by ArgoCD) and `ApplyOutOfSyncOnly` sync option
-   - `monitoring.yaml` (**monitoring-todolist-app**) → syncs `Kubernetes-Manifests-file/monitoring` into namespace `monitoring`, fully automated
+   - `monitoring.yaml` (**monitoring-todolist-app**) → syncs `Kubernetes-Manifests-file/monitoring` (alertmanager, grafana, prometheus-rules, servicemonitors) into namespace `monitoring`, fully automated
+   - `blackbox-exporter.yaml` (**monitoring-blackbox-exporter**) → a **multi-source** Application that installs the official `prometheus-blackbox-exporter` Helm chart (from the `prometheus-community` chart repo) with values overridden from `monitoring/blackbox-exporter/values.yaml`, and applies the custom `Probe` CR from `monitoring/blackbox-exporter/probes`, into namespace `monitoring`, fully automated
+   - `pvc-exporter.yaml` (**pvc-exporter**) → syncs `Kubernetes-Manifests-file/monitoring/pvc-exporter` into namespace `monitoring`, fully automated
+   - `loadtest.yaml` (**todolist-loadtest**) → syncs `overlays/prod/loadgenerator` into namespace `todolist-prod`, with an **empty `syncPolicy`** (no automation) so the k6 load test only runs when manually synced from the ArgoCD UI/CLI
 3. Jenkins updates the image tag directly inside the target overlay's `kustomization.yaml` (`images:` block) and pushes to `main`.
 4. ArgoCD detects the diff and automatically syncs the corresponding namespace.
 
@@ -293,8 +365,8 @@ This project follows the **App-of-Apps** GitOps pattern with ArgoCD.
 | Namespace | Created By | Purpose |
 |-----------|-----------|---------|
 | `todolist-staging` | ArgoCD (`CreateNamespace=true`) | Staging environment workloads |
-| `todolist-prod` | ArgoCD (`CreateNamespace=true`) | Production environment workloads |
-| `monitoring` | ArgoCD (`CreateNamespace=true`) | Prometheus / Grafana / Alertmanager / Blackbox |
+| `todolist-prod` | ArgoCD (`CreateNamespace=true`) | Production environment workloads + k6 load test Job |
+| `monitoring` | ArgoCD (`CreateNamespace=true`) | Prometheus rules/dashboards, Alertmanager, Blackbox Exporter, PVC Exporter |
 | `argocd` | *(installed via Helm)* | ArgoCD controller & UI |
 
 ### Application Components
@@ -308,8 +380,9 @@ This project follows the **App-of-Apps** GitOps pattern with ArgoCD.
 | **Ingress** | `overlays/<env>/ingress` | ✅ (`staging.local`) | ✅ (`todolist.local`) |
 | **HPA** | `overlays/prod/hpa` | ❌ | ✅ |
 | **Sealed Secrets** | `overlays/<env>/secrets` | ✅ | ✅ |
+| **Load Generator (k6)** | `overlays/prod/loadgenerator` | ❌ | ✅ (manual / hook-triggered) |
 
-> Unlike the original design, **HPA and Ingress are no longer patched on top of base manifests** — they are now defined as standalone resources directly inside each overlay's `kustomization.yaml`. This makes staging and prod fully independent instead of sharing a common `hpa.yaml`/`ingress.yaml` base + patch.
+> **HPA** and **Ingress** are defined as standalone resources directly inside each overlay's `kustomization.yaml` rather than being patched onto shared base manifests — this keeps staging and prod fully independent.
 
 ### Kustomize Overlay Structure
 
@@ -320,10 +393,11 @@ resources:
   - hpa
   - ingress
   - secrets
+  # loadgenerator is added separately (see 🧪 Load Testing)
 
 images:
   - name: houssemdhahri93/todolist-backend
-    newTag: v1.0.2
+    newTag: v1.0.3
   - name: houssemdhahri93/todolist-frontend
     newTag: v1.0.2
 ```
@@ -338,7 +412,7 @@ resources:
 
 images:
   - name: houssemdhahri93/todolist-backend
-    newTag: v1.0.2
+    newTag: v1.0.3
   - name: houssemdhahri93/todolist-frontend
     newTag: v1.0.2
 ```
@@ -362,17 +436,46 @@ Each `SealedSecret` is decrypted **in-cluster only** by the `sealed-secrets` con
 
 ## 📈 Monitoring Stack
 
-The full observability stack is deployed as its own ArgoCD Application (`monitoring-todolist-app`), synced from `Kubernetes-Manifests-file/monitoring`:
+The observability stack is split across **four** ArgoCD Applications, all landing in the `monitoring` namespace:
+
+| ArgoCD Application | Source | What it does |
+|---------------------|--------|---------------|
+| **monitoring-todolist-app** | `monitoring/` (kustomize) | Prometheus alerting rules, ServiceMonitors, the Grafana dashboard ConfigMap, and Alertmanager's Telegram routing |
+| **monitoring-blackbox-exporter** | Helm chart `prometheus-blackbox-exporter` + `monitoring/blackbox-exporter/` | Deploys the Blackbox Exporter itself (via Helm) plus the custom `Probe` CR that performs synthetic HTTP checks |
+| **pvc-exporter** | `monitoring/pvc-exporter/` | Deploys `local-pvc-exporter`, a DaemonSet that reports real on-disk usage for local PVCs |
+| **todolist-loadtest** *(optional)* | `overlays/prod/loadgenerator` | Not monitoring per se, but generates the traffic the dashboards visualize |
 
 | Sub-component | What it does |
 |----------------|--------------|
 | **Prometheus Rules** | Alerting rules for backend, frontend, and database — service down, container restarts, high CPU/memory, PVC almost full |
 | **ServiceMonitors** | Scrape backend `/metrics` and the `mongodb-exporter` sidecar metrics from both `todolist-staging` and `todolist-prod` |
-| **Blackbox Exporter Probe** | External HTTP uptime check (`http_2xx`) against the frontend service in both staging and prod |
-| **Grafana Dashboard** | A custom "🚀 TodoList Monitoring" dashboard (provisioned via ConfigMap) with an environment selector (`todolist-staging` / `todolist-prod`) showing service status, CPU/memory usage vs limits, container restarts, PVC usage, and active alerts |
+| **Blackbox Exporter** | Installed via its official Helm chart (`values.yaml` configures the `http_2xx`, `tcp_connect`, `dns` and `icmp` modules, plus an auto-created `ServiceMonitor`); a `Probe` CR (`frontend-probe.yaml`) then runs an `http_2xx` uptime check against the frontend service in both staging and prod |
+| **Local PVC Exporter** | A DaemonSet (`local-pvc-exporter`) running on every node with a read-only `hostPath` mount; it reports real disk usage (`local_pvc_capacity_bytes`, `local_pvc_used_bytes`, `local_pvc_available_bytes`, `local_pvc_used_ratio`) for local PVCs such as MongoDB's, scraped via its own `ServiceMonitor` |
+| **Grafana Dashboard** | A custom "🚀 TodoList Monitoring" dashboard (provisioned via ConfigMap) with an environment selector (`todolist-staging` / `todolist-prod`) showing service status, CPU/memory usage vs limits, container restarts, **MongoDB PVC storage usage**, HPA scaling, and active alerts |
 | **Alertmanager** | `AlertmanagerConfig` routes alerts to a **Telegram** chat, with the bot token stored as a Sealed Secret |
 
 > Full raw dashboard JSON and alert rule definitions live under `monitoring/grafana/dashboards/` and `monitoring/prometheus-rules/` respectively.
+
+---
+
+## 🧪 Load Testing (k6)
+
+Production traffic can be simulated using **[k6](https://k6.io/)**, defined under `overlays/prod/loadgenerator/`:
+
+| Manifest | Purpose |
+|----------|---------|
+| `configmap.yaml` | Holds the k6 test script (`loadtest.js`) plus target service addresses (`FRONTEND_SERVICE_ADDR`, `BACKEND_SERVICE_ADDR`) and virtual user count (`USERS`) |
+| `job.yaml` | A Kubernetes `Job` running `grafana/k6:latest`, which drives HTTP traffic against both the frontend and the backend `/api/tasks` endpoint for a fixed duration |
+| `kustomization.yaml` | Aggregates the ConfigMap and Job |
+
+**How it's triggered:**
+
+- The Job is annotated as an **ArgoCD Sync Hook** (`argocd.argoproj.io/hook: Sync`, `hook-delete-policy: BeforeHookCreation,HookSucceeded`), so it re-runs and cleans up automatically on every sync of an Application that includes it.
+- It is wired into ArgoCD in two ways:
+  1. **Bundled inside `prod`** — `loadgenerator` is listed as a resource in `overlays/prod/kustomization.yaml`, so it's part of the `todolist-prod` Application.
+  2. **Standalone Application** — `argocd/applications/loadtest.yaml` (**todolist-loadtest**) points directly at `overlays/prod/loadgenerator` with an empty `syncPolicy: {}`, so it can be synced **manually and independently**, on demand, from the ArgoCD UI/CLI without touching the rest of the prod stack.
+
+This lets you exercise the HPA-driven autoscaling in prod (see [📊 Autoscaling (HPA)](#-autoscaling-hpa)) by manually syncing `todolist-loadtest` whenever you want to generate load.
 
 ---
 
@@ -381,23 +484,26 @@ The full observability stack is deployed as its own ArgoCD Application (`monitor
 | Tool | Purpose | Version |
 |------|---------|---------|
 | **Jenkins** | CI/CD orchestration | LTS |
-| **Node.js** | Build environment (backend & frontend) | 18+ |
+| **Node.js** (Jenkins tool `node18`) | Build environment (backend & frontend) | 18+ |
+| **SonarQube** | Static code analysis + Quality Gate | Server configured as `SonarQube-Server` |
+| **Trivy** | Filesystem & image vulnerability/secret scanning | Latest |
 | **Docker** | Container runtime | 24+ |
 | **Kustomize** | K8s manifest patching | v5+ |
 | **ArgoCD** | GitOps controller (installed via Helm) | v2.x |
 | **Kubernetes** | Container orchestration | v1.28+ |
-| **Helm** | Kubernetes package manager | v3+ |
+| **Helm** | Kubernetes package manager (used for ArgoCD, kube-prometheus-stack, and the Blackbox Exporter Application) | v3+ |
 | **Sealed Secrets Controller** | Encrypts/decrypts SealedSecret CRDs | Latest |
 | **Prometheus + Grafana** | Metrics & dashboards (kube-prometheus-stack) | Latest |
-| **Blackbox Exporter** | HTTP uptime probing | Latest |
+| **Blackbox Exporter** | HTTP uptime probing (deployed as an ArgoCD-managed Helm release) | Chart `prometheus-blackbox-exporter` 11.18.0 |
 | **Metrics Server** | Required for HPA to function | Latest |
+| **k6** | Load testing (runs in-cluster via the `grafana/k6` image) | Latest |
 
 ### Jenkins Credentials Required
 
 | Credential ID | Type | Usage |
 |--------------|------|-------|
 | `github-token` | Username/Password | GitHub checkout & GitOps push |
-| `dockerhub-creds` | Username/Password | Registry image push |
+| `Dockerhub` | Username/Password | DockerHub image push |
 
 ---
 
@@ -432,19 +538,21 @@ helm install sealed-secrets sealed-secrets/sealed-secrets -n kube-system
 kubectl apply -f Kubernetes-Manifests-file/argocd/app-of-apps.yaml
 ```
 
-This single command bootstraps **staging**, **prod**, and **monitoring** through ArgoCD automatically (namespaces are created on the fly).
+This single command bootstraps **staging**, **prod**, **monitoring**, **Blackbox Exporter**, and **PVC Exporter**, and registers the **load test** Application through ArgoCD automatically (namespaces are created on the fly). The load test Application itself stays unsynced until you trigger it manually.
 
 ### 5. Configure Jenkins
 
 - Create two **Pipeline** jobs, one pointing to `Jenkins/Jenkinsfile-backend` and one to `Jenkins/Jenkinsfile-frontend`
-- Enable **GitHub webhook trigger** on both
-- Add the required credentials (`github-token`, `dockerhub-creds`)
+- Enable the **GitHub webhook trigger** on both
+- Configure the `node18` NodeJS tool and the `sonarqube-scanner` / `SonarQube-Server` SonarQube integration
+- Add the required credentials (`github-token`, `Dockerhub`)
 
 ### 6. Trigger the Pipelines
 
 ```bash
 git push origin main
 # Jenkins webhook fires → backend and/or frontend pipeline starts automatically
+# Set APPLY_PROD=true on a manual build run to also promote the image to overlays/prod
 ```
 
 ---
@@ -464,6 +572,8 @@ git push origin main
 - HPA-managed replica counts — ArgoCD `ignoreDifferences` prevents scaling from being reverted on sync
 - Ingress host: `todolist.local` (`/`, `/api`)
 - Sync restricted to `ApplyOutOfSyncOnly` for tighter, more controlled rollouts
+- Only promoted from Jenkins when the `APPLY_PROD` parameter is enabled
+- Optional **k6 load test** available on demand via the separate `todolist-loadtest` Application
 
 ---
 
@@ -476,7 +586,7 @@ HPA is currently defined **only in the `prod` overlay** (`overlays/prod/hpa/`):
 | `hpa-backend.yaml` | `todolist-backend-deployment` | 2 – 10 | CPU 70% · Memory 80% |
 | `hpa-frontend.yaml` | `todolist-frontend-deployment` | 2 – 6 | CPU 70% |
 
-> Staging currently runs with a fixed replica count (no HPA) since it's a lower-traffic, cost-optimized environment.
+> Staging currently runs with a fixed replica count (no HPA) since it's a lower-traffic, cost-optimized environment. To observe HPA scaling in action in prod, manually sync the `todolist-loadtest` ArgoCD Application (see [🧪 Load Testing (k6)](#-load-testing-k6)) to generate traffic.
 
 ---
 
@@ -486,9 +596,12 @@ HPA is currently defined **only in the `prod` overlay** (`overlays/prod/hpa/`):
 
 <img src="https://img.shields.io/badge/GitOps-ArgoCD-orange?style=flat-square"/>
 <img src="https://img.shields.io/badge/Pipeline-Jenkins-D24939?style=flat-square"/>
+<img src="https://img.shields.io/badge/Quality-SonarQube-4E9BCD?style=flat-square"/>
+<img src="https://img.shields.io/badge/Security-Trivy-1904DA?style=flat-square"/>
 <img src="https://img.shields.io/badge/Secrets-Sealed--Secrets-2596BE?style=flat-square"/>
 <img src="https://img.shields.io/badge/Monitoring-Prometheus%20%2B%20Grafana-F46800?style=flat-square"/>
 <img src="https://img.shields.io/badge/Alerts-Telegram-26A5E4?style=flat-square"/>
+<img src="https://img.shields.io/badge/Load%20Testing-k6-7D64FF?style=flat-square"/>
 <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square"/>
 
 </div>
