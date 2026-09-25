@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: todolist-loadgenerator-config
+
+data:
+  FRONTEND_SERVICE_ADDR: "todolist-frontend-service:3000"
+  BACKEND_SERVICE_ADDR: "todolist-backend-service:3500"
+  USERS: "10"
+
+  loadtest.js: |
+    import http from 'k6/http';
+    import { sleep } from 'k6';
+
+    export const options = {
+      vus: Number(__ENV.USERS || 10),
+      duration: '5m',
+    };
+
+    export default function () {
+      // Frontend traffic
+      http.get(`http://${__ENV.FRONTEND_SERVICE_ADDR}`);
+
+      // Backend traffic
+      http.get(`http://${__ENV.BACKEND_SERVICE_ADDR}/api/tasks`);
+
+      sleep(1);
+    }
