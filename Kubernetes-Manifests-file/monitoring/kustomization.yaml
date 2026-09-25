@@ -6,4 +6,3 @@ resources:
  - grafana
  - prometheus-rules
  - servicemonitors
- - blackbox

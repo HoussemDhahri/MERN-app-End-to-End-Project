@@ -5,6 +5,7 @@ metadata:
   namespace: monitoring
   labels:
     release: monitoring
+
 spec:
   groups:
     - name: todolist.backend
@@ -12,88 +13,132 @@ spec:
 
         - alert: TodoListBackendDown
           expr: |
-            kube_deployment_status_replicas_available{
-              namespace=~"todolist-staging|todolist-prod",
-              deployment="todolist-backend-deployment"
-            } < 1
-          for: 5m
+            (
+              label_replace(
+                kube_deployment_status_replicas_available{
+                  namespace=~"todolist-(staging|prod)",
+                  deployment="todolist-backend-deployment"
+                },
+                "target_namespace",
+                "$1",
+                "namespace",
+                "(todolist-(staging|prod))"
+              ) == 0
+            )
+            and on (target_namespace)
+            (
+              label_replace(
+                kube_namespace_status_phase{
+                  namespace=~"todolist-(staging|prod)",
+                  phase="Active"
+                },
+                "target_namespace",
+                "$1",
+                "namespace",
+                "(todolist-(staging|prod))"
+              ) == 1
+            )
+          for: 2m
           labels:
             severity: critical
             component: backend
           annotations:
-            summary: "TodoList backend is down"
-            description: "The TodoList backend has no available replicas in namespace {{ $labels.namespace }}."
-
-        - alert: TodoListBackendRestarts
-          expr: |
-            increase(
-              kube_pod_container_status_restarts_total{
-                namespace=~"todolist-staging|todolist-prod",
-                pod=~"todolist-backend-deployment-.*",
-                container!="POD",
-                container!=""
-              }[10m]
-            ) > 0
-          for: 5m
-          labels:
-            severity: warning
-            component: backend
-          annotations:
-            summary: "TodoList backend restarted"
-            description: "The TodoList backend container restarted during the last 10 minutes in namespace {{ $labels.namespace }}."
+            summary: "TodoList backend is down in {{ $labels.target_namespace }}"
+            description: "TodoList backend deployment in {{ $labels.target_namespace }} has no available replicas for more than 2 minutes."
 
         - alert: TodoListBackendHighCPU
           expr: |
-            (
-              sum by (namespace, pod, container) (
-                rate(container_cpu_usage_seconds_total{
-                  namespace=~"todolist-staging|todolist-prod",
-                  pod=~"todolist-backend-deployment-.*",
-                  container="todolist-backend"
-                }[5m])
-              )
-              /
-              on(namespace, pod, container)
-              kube_pod_container_resource_limits{
-                namespace=~"todolist-staging|todolist-prod",
-                pod=~"todolist-backend-deployment-.*",
-                container="todolist-backend",
-                resource="cpu",
-                unit="core"
-              }
+            label_replace(
+              (
+                sum by (namespace, pod) (
+                  rate(
+                    container_cpu_usage_seconds_total{
+                      namespace=~"todolist-(staging|prod)",
+                      pod=~"todolist-backend-deployment-.*",
+                      container="todolist-backend"
+                    }[5m]
+                  )
+                )
+                /
+                sum by (namespace, pod) (
+                  kube_pod_container_resource_requests{
+                    namespace=~"todolist-(staging|prod)",
+                    pod=~"todolist-backend-deployment-.*",
+                    container="todolist-backend",
+                    resource="cpu",
+                    unit="core"
+                  }
+                )
+              ),
+              "target_namespace",
+              "$1",
+              "namespace",
+              "(todolist-(staging|prod))"
             ) > 0.80
-          for: 5m
+          for: 10m
           labels:
             severity: warning
             component: backend
           annotations:
-            summary: "TodoList backend CPU usage is high"
-            description: "Backend CPU usage is above 80% of its CPU limit in namespace {{ $labels.namespace }}."
+            summary: "TodoList backend CPU is high in {{ $labels.target_namespace }}"
+            description: "TodoList backend pod {{ $labels.pod }} in {{ $labels.target_namespace }} is using more than 80% of its requested CPU for more than 10 minutes."
 
         - alert: TodoListBackendHighMemory
           expr: |
-            (
-              sum by (namespace, pod, container) (
-                container_memory_working_set_bytes{
-                  namespace=~"todolist-staging|todolist-prod",
-                  pod=~"todolist-backend-deployment-.*",
-                  container="todolist-backend"
-                }
-              )
-              /
-              on(namespace, pod, container)
-              kube_pod_container_resource_limits{
-                namespace=~"todolist-staging|todolist-prod",
-                pod=~"todolist-backend-deployment-.*",
-                container="todolist-backend",
-                resource="memory",
-                unit="byte"
-              }
+            label_replace(
+              (
+                sum by (namespace, pod) (
+                  container_memory_working_set_bytes{
+                    namespace=~"todolist-(staging|prod)",
+                    pod=~"todolist-backend-deployment-.*",
+                    container="todolist-backend"
+                  }
+                )
+                /
+                sum by (namespace, pod) (
+                  kube_pod_container_resource_requests{
+                    namespace=~"todolist-(staging|prod)",
+                    pod=~"todolist-backend-deployment-.*",
+                    container="todolist-backend",
+                    resource="memory",
+                    unit="byte"
+                  }
+                )
+              ),
+              "target_namespace",
+              "$1",
+              "namespace",
+              "(todolist-(staging|prod))"
             ) > 0.80
-          for: 5m
+          for: 10m
           labels:
-            component: backend
             severity: warning
+            component: backend
           annotations:
-            summary: "TodoList backend memory usage is high"
-            description: "Backend memory usage is above 80% of its memory limit in namespace {{ $labels.namespace }}."
+            summary: "TodoList backend memory is high in {{ $labels.target_namespace }}"
+            description: "TodoList backend pod {{ $labels.pod }} in {{ $labels.target_namespace }} is using more than 80% of its requested memory for more than 10 minutes."
+
+        - alert: TodoListBackendPodRestarting
+          expr: |
+            label_replace(
+              sum by (namespace, pod) (
+                increase(
+                  kube_pod_container_status_restarts_total{
+                    namespace=~"todolist-(staging|prod)",
+                    pod=~"todolist-backend-deployment-.*",
+                    container="todolist-backend"
+                  }[10m]
+                )
+              ),
+              "target_namespace",
+              "$1",
+              "namespace",
+              "(todolist-(staging|prod))"
+            ) > 3
+          for: 3m
+          labels:
+            severity: warning
+            component: backend
+          annotations:
+            summary: "TodoList backend pod is restarting in {{ $labels.target_namespace }}"
+            description: "TodoList backend pod {{ $labels.pod }} in {{ $labels.target_namespace }} has restarted more than 3 times in the last 10 minutes."

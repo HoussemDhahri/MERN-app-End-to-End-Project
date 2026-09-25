@@ -5,6 +5,7 @@ metadata:
   namespace: monitoring
   labels:
     release: monitoring
+
 spec:
   groups:
     - name: todolist.frontend
@@ -12,32 +13,60 @@ spec:
 
         - alert: TodoListFrontendDown
           expr: |
-            kube_deployment_status_replicas_available{
-              namespace=~"todolist-staging|todolist-prod",
-              deployment="todolist-frontend-deployment"
-            } < 1
-          for: 5m
+            (
+              label_replace(
+                kube_deployment_status_replicas_available{
+                  namespace=~"todolist-(staging|prod)",
+                  deployment="todolist-frontend-deployment"
+                },
+                "target_namespace",
+                "$1",
+                "namespace",
+                "(todolist-(staging|prod))"
+              ) == 0
+            )
+            and on (target_namespace)
+            (
+              label_replace(
+                kube_namespace_status_phase{
+                  namespace=~"todolist-(staging|prod)",
+                  phase="Active"
+                },
+                "target_namespace",
+                "$1",
+                "namespace",
+                "(todolist-(staging|prod))"
+              ) == 1
+            )
+          for: 2m
           labels:
             severity: critical
             component: frontend
           annotations:
-            summary: "TodoList frontend is down"
-            description: "The TodoList frontend has no available replicas in namespace {{ $labels.namespace }}."
+            summary: "TodoList frontend is down in {{ $labels.target_namespace }}"
+            description: "TodoList frontend deployment in {{ $labels.target_namespace }} has no available replicas for more than 2 minutes."
 
-        - alert: TodoListFrontendRestarts
+        - alert: TodoListFrontendPodRestarting
           expr: |
-            increase(
-              kube_pod_container_status_restarts_total{
-                namespace=~"todolist-staging|todolist-prod",
-                pod=~"todolist-frontend-deployment-.*",
-                container!="POD",
-                container!=""
-              }[10m]
-            ) > 0
-          for: 5m
+            label_replace(
+              sum by (namespace, pod) (
+                increase(
+                  kube_pod_container_status_restarts_total{
+                    namespace=~"todolist-(staging|prod)",
+                    pod=~"todolist-frontend-deployment-.*",
+                    container="todolist-frontend"
+                  }[10m]
+                )
+              ),
+              "target_namespace",
+              "$1",
+              "namespace",
+              "(todolist-(staging|prod))"
+            ) > 3
+          for: 3m
           labels:
             severity: warning
             component: frontend
           annotations:
-            summary: "TodoList frontend restarted"
-            description: "The TodoList frontend container restarted during the last 10 minutes in namespace {{ $labels.namespace }}."
+            summary: "TodoList frontend pod is restarting in {{ $labels.target_namespace }}"
+            description: "TodoList frontend pod {{ $labels.pod }} in {{ $labels.target_namespace }} has restarted more than 3 times in the last 10 minutes."

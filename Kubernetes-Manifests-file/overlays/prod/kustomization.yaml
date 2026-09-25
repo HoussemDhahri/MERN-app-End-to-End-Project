@@ -10,7 +10,6 @@ resources:
 
 
 
-
 images:
 - name: houssemdhahri93/todolist-backend
   newName: houssemdhahri93/todolist-backend

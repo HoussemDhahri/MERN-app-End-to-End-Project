@@ -5,6 +5,7 @@ metadata:
   namespace: monitoring
   labels:
     release: monitoring
+
 spec:
   groups:
     - name: todolist.database
@@ -12,107 +13,158 @@ spec:
 
         - alert: TodoListDatabaseDown
           expr: |
-            kube_statefulset_status_replicas_ready{
-              namespace=~"todolist-staging|todolist-prod",
-              statefulset="todolist-database-statefulset"
-            } < 1
-          for: 5m
+            (
+              label_replace(
+                kube_statefulset_status_replicas_ready{
+                  namespace=~"todolist-(staging|prod)",
+                  statefulset="todolist-database-statefulset"
+                },
+                "target_namespace",
+                "$1",
+                "namespace",
+                "(todolist-(staging|prod))"
+              ) == 0
+            )
+            and on (target_namespace)
+            (
+              label_replace(
+                kube_namespace_status_phase{
+                  namespace=~"todolist-(staging|prod)",
+                  phase="Active"
+                },
+                "target_namespace",
+                "$1",
+                "namespace",
+                "(todolist-(staging|prod))"
+              ) == 1
+            )
+          for: 2m
           labels:
             severity: critical
             component: database
           annotations:
-            summary: "TodoList MongoDB is down"
-            description: "The MongoDB StatefulSet has no ready replicas in namespace {{ $labels.namespace }}."
-
-        - alert: TodoListDatabaseRestarts
-          expr: |
-            increase(
-              kube_pod_container_status_restarts_total{
-                namespace=~"todolist-staging|todolist-prod",
-                pod=~"todolist-database-statefulset-.*",
-                container="mongodb"
-              }[10m]
-            ) > 0
-          for: 5m
-          labels:
-            severity: warning
-            component: database
-          annotations:
-            summary: "TodoList MongoDB restarted"
-            description: "The MongoDB container restarted during the last 10 minutes in namespace {{ $labels.namespace }}."
+            summary: "TodoList MongoDB is down in {{ $labels.target_namespace }}"
+            description: "MongoDB StatefulSet in {{ $labels.target_namespace }} has no ready replicas for more than 2 minutes."
 
         - alert: TodoListDatabaseHighCPU
           expr: |
-            (
-              sum by (namespace, pod, container) (
-                rate(container_cpu_usage_seconds_total{
-                  namespace=~"todolist-staging|todolist-prod",
-                  pod=~"todolist-database-statefulset-.*",
-                  container="mongodb"
-                }[5m])
-              )
-              /
-              on(namespace, pod, container)
-              kube_pod_container_resource_limits{
-                namespace=~"todolist-staging|todolist-prod",
-                pod=~"todolist-database-statefulset-.*",
-                container="mongodb",
-                resource="cpu",
-                unit="core"
-              }
-            ) > 0.80
-          for: 5m
-          labels:
-            severity: warning
-            component: database
-          annotations:
-            summary: "TodoList MongoDB CPU usage is high"
-            description: "MongoDB CPU usage is above 80% of its CPU limit in namespace {{ $labels.namespace }}."
-
-        - alert: TodoListDatabaseHighMemory
-          expr: |
-            (
-              sum by (namespace, pod, container) (
-                container_memory_working_set_bytes{
-                  namespace=~"todolist-staging|todolist-prod",
-                  pod=~"todolist-database-statefulset-.*",
-                  container="mongodb"
-                }
-              )
-              /
-              on(namespace, pod, container)
-              kube_pod_container_resource_limits{
-                namespace=~"todolist-staging|todolist-prod",
-                pod=~"todolist-database-statefulset-.*",
-                container="mongodb",
-                resource="memory",
-                unit="byte"
-              }
-            ) > 0.80
-          for: 5m
-          labels:
-            severity: warning
-            component: database
-          annotations:
-            summary: "TodoList MongoDB memory usage is high"
-            description: "MongoDB memory usage is above 80% of its memory limit in namespace {{ $labels.namespace }}."
-
-        - alert: TodoListDatabasePVCAlmostFull
-          expr: |
-            (
-              kubernetes_pvc_used_bytes{
-                exported_namespace=~"todolist-staging|todolist-prod"
-              }
-              /
-              on(exported_namespace,persistentvolume,persistentvolumeclaim)
-              kubernetes_pvc_capacity_bytes{
-                exported_namespace=~"todolist-staging|todolist-prod"
-              }
+            label_replace(
+              (
+                sum by (namespace, pod) (
+                  rate(
+                    container_cpu_usage_seconds_total{
+                      namespace=~"todolist-(staging|prod)",
+                      pod=~"todolist-database-statefulset-.*",
+                      container="mongodb"
+                    }[5m]
+                  )
+                )
+                /
+                sum by (namespace, pod) (
+                  kube_pod_container_resource_requests{
+                    namespace=~"todolist-(staging|prod)",
+                    pod=~"todolist-database-statefulset-.*",
+                    container="mongodb",
+                    resource="cpu",
+                    unit="core"
+                  }
+                )
+              ),
+              "target_namespace",
+              "$1",
+              "namespace",
+              "(todolist-(staging|prod))"
             ) > 0.80
           for: 10m
           labels:
-            component: database
             severity: warning
+            component: database
           annotations:
-            summary: TodoList MongoDB PVC usage is high
-            description: A MongoDB PVC is using more than 80% of its available storage in namespace {{ $labels.exported_namespace }}.
+            summary: "TodoList MongoDB CPU is high in {{ $labels.target_namespace }}"
+            description: "MongoDB pod {{ $labels.pod }} in {{ $labels.target_namespace }} is using more than 80% of its requested CPU for more than 10 minutes."
+
+        - alert: TodoListDatabaseHighMemory
+          expr: |
+            label_replace(
+              (
+                sum by (namespace, pod) (
+                  container_memory_working_set_bytes{
+                    namespace=~"todolist-(staging|prod)",
+                    pod=~"todolist-database-statefulset-.*",
+                    container="mongodb"
+                  }
+                )
+                /
+                sum by (namespace, pod) (
+                  kube_pod_container_resource_requests{
+                    namespace=~"todolist-(staging|prod)",
+                    pod=~"todolist-database-statefulset-.*",
+                    container="mongodb",
+                    resource="memory",
+                    unit="byte"
+                  }
+                )
+              ),
+              "target_namespace",
+              "$1",
+              "namespace",
+              "(todolist-(staging|prod))"
+            ) > 0.80
+          for: 10m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: "TodoList MongoDB memory is high in {{ $labels.target_namespace }}"
+            description: "MongoDB pod {{ $labels.pod }} in {{ $labels.target_namespace }} is using more than 80% of its requested memory for more than 10 minutes."
+
+        - alert: TodoListDatabasePodRestarting
+          expr: |
+            label_replace(
+              sum by (namespace, pod) (
+                increase(
+                  kube_pod_container_status_restarts_total{
+                    namespace=~"todolist-(staging|prod)",
+                    pod=~"todolist-database-statefulset-.*",
+                    container="mongodb"
+                  }[10m]
+                )
+              ),
+              "target_namespace",
+              "$1",
+              "namespace",
+              "(todolist-(staging|prod))"
+            ) > 3
+          for: 3m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: "TodoList MongoDB pod is restarting in {{ $labels.target_namespace }}"
+            description: "MongoDB pod {{ $labels.pod }} in {{ $labels.target_namespace }} has restarted more than 3 times in the last 10 minutes."
+
+        - alert: TodoListDatabasePVCAlmostFull
+          expr: |
+            label_replace(
+              (
+                kubernetes_pvc_used_bytes{
+                  exported_namespace=~"todolist-(staging|prod)"
+                }
+                /
+                on(exported_namespace, persistentvolume, persistentvolumeclaim)
+                kubernetes_pvc_capacity_bytes{
+                  exported_namespace=~"todolist-(staging|prod)"
+                }
+              ),
+              "target_namespace",
+              "$1",
+              "exported_namespace",
+              "(todolist-(staging|prod))"
+            ) > 0.80
+          for: 10m
+          labels:
+            severity: warning
+            component: database
+          annotations:
+            summary: "TodoList MongoDB PVC usage is high in {{ $labels.target_namespace }}"
+            description: "MongoDB PVC {{ $labels.persistentvolumeclaim }} in {{ $labels.target_namespace }} is using more than 80% of its available storage for more than 10 minutes."

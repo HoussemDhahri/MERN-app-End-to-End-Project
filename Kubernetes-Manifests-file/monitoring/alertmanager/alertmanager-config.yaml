@@ -13,10 +13,12 @@ spec:
       - name: component
         matchType: "=~"
         value: "frontend|backend|database"
+
     groupBy:
       - alertname
       - component
-      - namespace
+      - target_namespace
+
     groupWait: 30s
     groupInterval: 5m
     repeatInterval: 4h
@@ -28,8 +30,10 @@ spec:
             name: alertmanager-telegram-token
             key: bot_token
           chatID: -1003954919587
+
           sendResolved: true
           parseMode: Markdown
+
           message: |
             {{ if eq .Status "firing" }}
             🚨 *TodoList Alert*
@@ -39,10 +43,12 @@ spec:
 
             *Alert:* {{ .CommonLabels.alertname }}
             *Component:* {{ .CommonLabels.component }}
-            *Namespace:* {{ .CommonLabels.namespace }}
+            *Namespace:* {{ .CommonLabels.target_namespace }}
             *Severity:* {{ .CommonLabels.severity }}
 
             *Description:*
-            {{ .CommonAnnotations.description }}
+            {{ range .Alerts }}
+            • {{ .Annotations.description }}
+            {{ end }}
 
             *Status:* {{ .Status | toUpper }}
